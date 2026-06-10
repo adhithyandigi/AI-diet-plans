@@ -234,96 +234,214 @@ function scaleFoodItem(food, grams, displayQty) {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────
+// DYNAMIC DIET PLAN — scales every food quantity to the individual's
+// exact calorie and macro targets so no two people get the same plan.
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Given a meal's calorie target and a desired macro split,
+ * solve for the gram amount of each food ingredient so the
+ * meal hits its targets as closely as possible.
+ *
+ * Strategy per meal:
+ *  1. Fix the protein source size to cover the meal's protein target.
+ *  2. Fix the fat source size to cover the meal's fat target.
+ *  3. Fill remaining calories with the carb source.
+ *  4. Add a fixed veggie portion (low cal, no scaling needed).
+ */
+function buildMeal({ time, name, emoji, calTarget, proteinTarget, carbTarget, fatTarget, proteinFood, carbFood, fatFood, veggieFood }) {
+  const items = [];
+
+  // ── 1. Protein source — scale to hit protein target ──
+  const proteinGrams = Math.round((proteinTarget / proteinFood.p) * 100);
+  const pItem = scaleFoodItem(proteinFood, proteinGrams, `${proteinGrams}g`);
+  items.push(pItem);
+
+  // ── 2. Fat source — scale to hit fat target (accounting for fat already in protein food) ──
+  const fatAlreadyCovered = pItem.f;
+  const fatStillNeeded = Math.max(0, fatTarget - fatAlreadyCovered);
+  let fatGrams = Math.round((fatStillNeeded / fatFood.f) * 100);
+  fatGrams = Math.max(5, Math.min(fatGrams, 50)); // sensible range 5–50g
+  if (fatFood !== proteinFood) {
+    const fItem = scaleFoodItem(fatFood, fatGrams, `${fatGrams}g`);
+    items.push(fItem);
+  }
+
+  // ── 3. Carb source — fill remaining calories ──
+  const calUsed = items.reduce((s, i) => s + i.cal, 0);
+  const calLeft = Math.max(0, calTarget - calUsed);
+  let carbGrams = Math.round((calLeft / carbFood.cal) * 100);
+  carbGrams = Math.max(30, Math.min(carbGrams, 400)); // sensible range
+  items.push(scaleFoodItem(carbFood, carbGrams, `${carbGrams}g`));
+
+  // ── 4. Veggie portion — fixed (negligible calories) ──
+  if (veggieFood) {
+    items.push(scaleFoodItem(veggieFood, 150, '150g'));
+  }
+
+  return { time, name, emoji, target: calTarget, items };
+}
+
 function generateDietPlan(targetCal, macros, goal, weight, bmi) {
   const isLoss = goal === 'loss';
   const isGain = goal === 'gain';
 
-  // Meal calorie distribution
+  // ── Meal calorie distribution (%) ──
+  // Loss: lighter breakfast/snack, heavier lunch+dinner
+  // Gain: heavy on every meal, snack also substantial
   const dist = isLoss
-    ? [0.25, 0.30, 0.15, 0.30]
+    ? [0.25, 0.35, 0.10, 0.30]
     : isGain
-    ? [0.25, 0.30, 0.15, 0.30]
+    ? [0.28, 0.32, 0.12, 0.28]
     : [0.25, 0.30, 0.15, 0.30];
 
   const mealCals = dist.map(d => Math.round(targetCal * d));
 
+  // Per-meal protein / carb / fat targets (grams), distributed proportionally
+  const mealMacros = dist.map((d, i) => ({
+    cal:     mealCals[i],
+    protein: Math.round(macros.protein * d),
+    carbs:   Math.round(macros.carbs   * d),
+    fat:     Math.round(macros.fat     * d),
+  }));
+
   const meals = [];
 
-  // ── Meal 1: Breakfast ──
-  const breakfast = { time: '7:00 – 8:00 AM', name: 'Breakfast', emoji: '🌅', target: mealCals[0], items: [] };
-  if (isLoss) {
-    breakfast.items.push(scaleFoodItem(FOOD_DB.eggWhites, 99, '3 egg whites'));
-    breakfast.items.push(scaleFoodItem(FOOD_DB.eggs, 100, '1 whole egg'));
-    breakfast.items.push(scaleFoodItem(FOOD_DB.oats, 60, '60g'));
-    breakfast.items.push(scaleFoodItem(FOOD_DB.apple, 150, '1 medium'));
-  } else if (isGain) {
-    breakfast.items.push(scaleFoodItem(FOOD_DB.eggs, 200, '3 whole eggs'));
-    breakfast.items.push(scaleFoodItem(FOOD_DB.oats, 80, '80g'));
-    breakfast.items.push(scaleFoodItem(FOOD_DB.banana, 100, '1 medium'));
-    breakfast.items.push(scaleFoodItem(FOOD_DB.peanutButter, 32, '1 tbsp'));
-  } else {
-    breakfast.items.push(scaleFoodItem(FOOD_DB.eggs, 150, '2 whole eggs'));
-    breakfast.items.push(scaleFoodItem(FOOD_DB.wholeWheatBread, 60, '2 slices'));
-    breakfast.items.push(scaleFoodItem(FOOD_DB.greekYogurt, 150, '150g'));
-    breakfast.items.push(scaleFoodItem(FOOD_DB.apple, 150, '1 medium'));
-  }
-  meals.push(breakfast);
+  // ════════════════════════════════════════
+  // MEAL 1 — BREAKFAST
+  // ════════════════════════════════════════
+  let bfProteinFood, bfCarbFood, bfFatFood, bfVeg;
 
-  // ── Meal 2: Lunch ──
-  const lunch = { time: '12:30 – 1:30 PM', name: 'Lunch', emoji: '☀️', target: mealCals[1], items: [] };
   if (isLoss) {
-    lunch.items.push(scaleFoodItem(FOOD_DB.chickenBreast, 200, '200g'));
-    lunch.items.push(scaleFoodItem(FOOD_DB.brownRice, 150, '150g cooked'));
-    lunch.items.push(scaleFoodItem(FOOD_DB.broccoli, 200, '200g'));
-    lunch.items.push(scaleFoodItem(FOOD_DB.oliveOil, 13.5, '1 tbsp'));
+    // High protein, lower carb breakfast
+    bfProteinFood = FOOD_DB.eggWhites;   // very lean protein
+    bfCarbFood    = FOOD_DB.oats;
+    bfFatFood     = FOOD_DB.almonds;
+    bfVeg         = null;
   } else if (isGain) {
-    lunch.items.push(scaleFoodItem(FOOD_DB.chickenBreast, 250, '250g'));
-    lunch.items.push(scaleFoodItem(FOOD_DB.brownRice, 250, '250g cooked'));
-    lunch.items.push(scaleFoodItem(FOOD_DB.mixedVeg, 150, '150g'));
-    lunch.items.push(scaleFoodItem(FOOD_DB.avocado, 100, '½ avocado'));
+    // Dense calorie breakfast
+    bfProteinFood = FOOD_DB.eggs;
+    bfCarbFood    = FOOD_DB.oats;
+    bfFatFood     = FOOD_DB.peanutButter;
+    bfVeg         = null;
   } else {
-    lunch.items.push(scaleFoodItem(FOOD_DB.salmonFillet, 180, '180g'));
-    lunch.items.push(scaleFoodItem(FOOD_DB.quinoa, 150, '150g cooked'));
-    lunch.items.push(scaleFoodItem(FOOD_DB.spinach, 100, '100g'));
-    lunch.items.push(scaleFoodItem(FOOD_DB.oliveOil, 13.5, '1 tbsp'));
+    bfProteinFood = FOOD_DB.greekYogurt;
+    bfCarbFood    = FOOD_DB.wholeWheatBread;
+    bfFatFood     = FOOD_DB.almonds;
+    bfVeg         = null;
   }
-  meals.push(lunch);
 
-  // ── Meal 3: Evening Snack ──
-  const snack = { time: '4:00 – 5:00 PM', name: 'Evening Snack', emoji: '🌿', target: mealCals[2], items: [] };
-  if (isLoss) {
-    snack.items.push(scaleFoodItem(FOOD_DB.greekYogurt, 200, '200g'));
-    snack.items.push(scaleFoodItem(FOOD_DB.almonds, 30, '30g (handful)'));
-  } else if (isGain) {
-    snack.items.push(scaleFoodItem(FOOD_DB.wheyProtein, 30, '1 scoop'));
-    snack.items.push(scaleFoodItem(FOOD_DB.banana, 100, '1 medium'));
-    snack.items.push(scaleFoodItem(FOOD_DB.peanutButter, 32, '1 tbsp'));
-  } else {
-    snack.items.push(scaleFoodItem(FOOD_DB.cottage, 150, '150g'));
-    snack.items.push(scaleFoodItem(FOOD_DB.apple, 150, '1 medium'));
-    snack.items.push(scaleFoodItem(FOOD_DB.almonds, 20, '20g'));
-  }
-  meals.push(snack);
+  meals.push(buildMeal({
+    time: '7:00 – 8:00 AM', name: 'Breakfast', emoji: '🌅',
+    calTarget:     mealMacros[0].cal,
+    proteinTarget: mealMacros[0].protein,
+    carbTarget:    mealMacros[0].carbs,
+    fatTarget:     mealMacros[0].fat,
+    proteinFood:   bfProteinFood,
+    carbFood:      bfCarbFood,
+    fatFood:       bfFatFood,
+    veggieFood:    bfVeg,
+  }));
 
-  // ── Meal 4: Dinner ──
-  const dinner = { time: '7:30 – 8:30 PM', name: 'Dinner', emoji: '🌙', target: mealCals[3], items: [] };
+  // ════════════════════════════════════════
+  // MEAL 2 — LUNCH
+  // ════════════════════════════════════════
+  let lnProteinFood, lnCarbFood, lnFatFood, lnVeg;
+
   if (isLoss) {
-    dinner.items.push(scaleFoodItem(FOOD_DB.tunaCanned, 150, '150g'));
-    dinner.items.push(scaleFoodItem(FOOD_DB.sweetPotato, 150, '150g'));
-    dinner.items.push(scaleFoodItem(FOOD_DB.broccoli, 200, '200g'));
-    dinner.items.push(scaleFoodItem(FOOD_DB.oliveOil, 13.5, '1 tbsp'));
+    lnProteinFood = FOOD_DB.chickenBreast;
+    lnCarbFood    = FOOD_DB.brownRice;
+    lnFatFood     = FOOD_DB.oliveOil;
+    lnVeg         = FOOD_DB.broccoli;
   } else if (isGain) {
-    dinner.items.push(scaleFoodItem(FOOD_DB.salmonFillet, 220, '220g'));
-    dinner.items.push(scaleFoodItem(FOOD_DB.sweetPotato, 200, '200g'));
-    dinner.items.push(scaleFoodItem(FOOD_DB.spinach, 150, '150g'));
-    dinner.items.push(scaleFoodItem(FOOD_DB.almonds, 30, '30g'));
+    lnProteinFood = FOOD_DB.chickenBreast;
+    lnCarbFood    = FOOD_DB.brownRice;
+    lnFatFood     = FOOD_DB.avocado;
+    lnVeg         = FOOD_DB.mixedVeg;
   } else {
-    dinner.items.push(scaleFoodItem(FOOD_DB.chickenBreast, 180, '180g'));
-    dinner.items.push(scaleFoodItem(FOOD_DB.lentils, 150, '150g cooked'));
-    dinner.items.push(scaleFoodItem(FOOD_DB.mixedVeg, 150, '150g'));
-    dinner.items.push(scaleFoodItem(FOOD_DB.oliveOil, 13.5, '1 tbsp'));
+    lnProteinFood = FOOD_DB.salmonFillet;
+    lnCarbFood    = FOOD_DB.quinoa;
+    lnFatFood     = FOOD_DB.oliveOil;
+    lnVeg         = FOOD_DB.spinach;
   }
-  meals.push(dinner);
+
+  meals.push(buildMeal({
+    time: '12:30 – 1:30 PM', name: 'Lunch', emoji: '☀️',
+    calTarget:     mealMacros[1].cal,
+    proteinTarget: mealMacros[1].protein,
+    carbTarget:    mealMacros[1].carbs,
+    fatTarget:     mealMacros[1].fat,
+    proteinFood:   lnProteinFood,
+    carbFood:      lnCarbFood,
+    fatFood:       lnFatFood,
+    veggieFood:    lnVeg,
+  }));
+
+  // ════════════════════════════════════════
+  // MEAL 3 — SNACK
+  // ════════════════════════════════════════
+  let snProteinFood, snCarbFood, snFatFood;
+
+  if (isLoss) {
+    snProteinFood = FOOD_DB.greekYogurt;
+    snCarbFood    = FOOD_DB.apple;
+    snFatFood     = FOOD_DB.almonds;
+  } else if (isGain) {
+    snProteinFood = FOOD_DB.wheyProtein;
+    snCarbFood    = FOOD_DB.banana;
+    snFatFood     = FOOD_DB.peanutButter;
+  } else {
+    snProteinFood = FOOD_DB.cottage;
+    snCarbFood    = FOOD_DB.apple;
+    snFatFood     = FOOD_DB.almonds;
+  }
+
+  meals.push(buildMeal({
+    time: '4:00 – 5:00 PM', name: 'Evening Snack', emoji: '🌿',
+    calTarget:     mealMacros[2].cal,
+    proteinTarget: mealMacros[2].protein,
+    carbTarget:    mealMacros[2].carbs,
+    fatTarget:     mealMacros[2].fat,
+    proteinFood:   snProteinFood,
+    carbFood:      snCarbFood,
+    fatFood:       snFatFood,
+    veggieFood:    null,
+  }));
+
+  // ════════════════════════════════════════
+  // MEAL 4 — DINNER
+  // ════════════════════════════════════════
+  let dnProteinFood, dnCarbFood, dnFatFood, dnVeg;
+
+  if (isLoss) {
+    dnProteinFood = FOOD_DB.tunaCanned;
+    dnCarbFood    = FOOD_DB.sweetPotato;
+    dnFatFood     = FOOD_DB.oliveOil;
+    dnVeg         = FOOD_DB.broccoli;
+  } else if (isGain) {
+    dnProteinFood = FOOD_DB.salmonFillet;
+    dnCarbFood    = FOOD_DB.sweetPotato;
+    dnFatFood     = FOOD_DB.almonds;
+    dnVeg         = FOOD_DB.spinach;
+  } else {
+    dnProteinFood = FOOD_DB.chickenBreast;
+    dnCarbFood    = FOOD_DB.lentils;
+    dnFatFood     = FOOD_DB.oliveOil;
+    dnVeg         = FOOD_DB.mixedVeg;
+  }
+
+  meals.push(buildMeal({
+    time: '7:30 – 8:30 PM', name: 'Dinner', emoji: '🌙',
+    calTarget:     mealMacros[3].cal,
+    proteinTarget: mealMacros[3].protein,
+    carbTarget:    mealMacros[3].carbs,
+    fatTarget:     mealMacros[3].fat,
+    proteinFood:   dnProteinFood,
+    carbFood:      dnCarbFood,
+    fatFood:       dnFatFood,
+    veggieFood:    dnVeg,
+  }));
 
   return meals;
 }
@@ -522,34 +640,42 @@ function generateAnalysisText(bmi, bmiStatus, goal, weight, targetCal, macros, a
 // ═══════════════════════════════════════
 
 function generateInsights(goal, bmi, weight, macros, targetCal, level) {
+  // Personalised numbers
+  const proteinPerKg = (macros.protein / weight).toFixed(1);
+  const weeklyLoss = ((500 * 7) / 7700).toFixed(2); // ~0.45kg/week at 500 kcal deficit
+  const weeklyGain = ((400 * 7) / 7700).toFixed(2); // ~0.36kg/week lean gain potential
+  const carbPct    = Math.round((macros.carbs * 4 / targetCal) * 100);
+  const proteinPct = Math.round((macros.protein * 4 / targetCal) * 100);
+  const fatPct     = Math.round((macros.fat * 9 / targetCal) * 100);
+
   const goalInsights = {
     loss: {
-      why: `This high-protein, moderate-deficit diet is specifically designed for fat loss while protecting lean muscle mass. High protein (${macros.protein}g) keeps you full and boosts your metabolism through the thermic effect of food. The calorie deficit of ~500 kcal/day ensures steady, sustainable fat loss of ~0.5kg per week.`,
+      why: `Your plan is calibrated to your exact bodyweight of ${weight}kg. At ${proteinPerKg}g protein per kg of bodyweight (${macros.protein}g total), your muscle tissue is fully protected during the deficit. The macro split — ${proteinPct}% protein / ${carbPct}% carbs / ${fatPct}% fat — maximises satiety and the thermic effect of food. Your ${targetCal} kcal target creates the right deficit for your metabolism.`,
       timeline: [
-        { week: 'Week 1-2', desc: 'Water weight drops, energy adjusts to deficit' },
-        { week: 'Week 3-4', desc: 'Fat loss begins visibly, strength maintained' },
-        { week: 'Week 5-8', desc: 'Noticeable physique changes, improved energy' },
-        { week: 'Week 9-12', desc: 'Significant body composition shift achieved' },
+        { week: 'Week 1-2', desc: `Water weight drops 1–2kg, energy adapts to your ${targetCal} kcal target` },
+        { week: 'Week 3-4', desc: `True fat loss begins — expect ~${weeklyLoss}kg/week at your deficit` },
+        { week: 'Week 5-8', desc: 'Visible physique changes, improved energy and mental clarity' },
+        { week: 'Week 9-12', desc: `Significant body composition shift — projected 3–5kg fat loss` },
       ],
       motivation: "Consistency beats perfection every time. You don't need to be extreme — you need to be consistent. Show up 80% of the time and the results will surprise you.",
     },
     gain: {
-      why: `This calorie-surplus plan with high protein (${macros.protein}g) and ample carbohydrates (${macros.carbs}g) provides the anabolic fuel your muscles need to grow. The push/pull/legs split is the gold standard for hypertrophy, ensuring each muscle group gets optimal frequency and volume.`,
+      why: `Your plan is built around your bodyweight of ${weight}kg. At ${proteinPerKg}g protein per kg (${macros.protein}g total), you exceed the hypertrophy threshold. The ${macros.carbs}g of carbohydrates fill your muscle glycogen stores and fuel every training session. Your ${targetCal} kcal surplus is calibrated to maximise lean mass gains while minimising excess fat gain.`,
       timeline: [
-        { week: 'Week 1-2', desc: 'Strength increases rapidly (neural adaptations)' },
-        { week: 'Week 3-4', desc: 'Muscle fullness and pump noticeably better' },
-        { week: 'Week 5-8', desc: 'Measurable size gains in major muscle groups' },
-        { week: 'Week 9-12', desc: '3-5kg lean muscle gain is realistic and expected' },
+        { week: 'Week 1-2', desc: `Strength increases (neural adaptation), scale weight up ~${(weeklyGain * 2).toFixed(1)}kg` },
+        { week: 'Week 3-4', desc: 'Muscle fullness and training pump noticeably improve' },
+        { week: 'Week 5-8', desc: 'Measurable size gains — arms, chest, and legs visibly fuller' },
+        { week: 'Week 9-12', desc: `Projected ${(weeklyGain * 12).toFixed(1)}–${(weeklyGain * 16).toFixed(1)}kg total lean mass gained` },
       ],
       motivation: "Muscles grow outside the gym, but only when you've pushed hard inside it. Eat big, lift heavy, sleep well — repeat.",
     },
     maintenance: {
-      why: `Maintenance is often underrated. At ${targetCal} kcal with balanced macros, your body enters a state of body recomposition — losing small amounts of fat while maintaining or slightly building muscle. This sustainable approach is the foundation of long-term health.`,
+      why: `At ${weight}kg your maintenance calories are ${targetCal} kcal. With ${proteinPerKg}g/kg protein (${macros.protein}g), your body enters recomposition mode — slowly shifting fat to muscle at the same scale weight. The ${carbPct}/${proteinPct}/${fatPct} carb/protein/fat split is designed for sustained energy, performance, and long-term health.`,
       timeline: [
-        { week: 'Week 1-2', desc: 'Energy levels stabilize, performance improves' },
-        { week: 'Week 3-4', desc: 'Body composition starts gradually improving' },
-        { week: 'Week 5-8', desc: 'Strength benchmarks improve consistently' },
-        { week: 'Week 9-12', desc: 'Leaner, stronger physique at same body weight' },
+        { week: 'Week 1-2', desc: `Energy stabilises at ${targetCal} kcal; performance in training improves` },
+        { week: 'Week 3-4', desc: 'Body composition begins improving — less fat, more tone' },
+        { week: 'Week 5-8', desc: 'Strength benchmarks improve consistently across all lifts' },
+        { week: 'Week 9-12', desc: 'Leaner, stronger physique at the same body weight' },
       ],
       motivation: "Health is a lifelong journey, not a 30-day challenge. You are building habits that will serve you for decades.",
     },
