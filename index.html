@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NutriAI — Personalized Diet Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="light-mode">
+
+  <!-- DARK MODE TOGGLE -->
+  <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+    <span class="sun">☀️</span>
+    <span class="moon">🌙</span>
+  </button>
+
+  <!-- ══════════════ PAGE 1: LANDING / FORM ══════════════ -->
+  <div id="page-form" class="page active">
+    <div class="landing-layout">
+
+      <!-- LEFT: Hero -->
+      <div class="landing-hero">
+        <div class="hero-badge">🤖 AI-Powered</div>
+        <h1 class="hero-title">Your Body.<br><span class="accent">Your Plan.</span><br>Precision Nutrition.</h1>
+        <p class="hero-sub">Get a science-backed, personalized diet and workout plan generated for your unique biology in seconds — no guesswork, no generics.</p>
+        <div class="hero-stats">
+          <div class="stat"><span class="stat-num">50K+</span><span class="stat-label">Plans Generated</span></div>
+          <div class="stat"><span class="stat-num">98%</span><span class="stat-label">Accuracy Rate</span></div>
+          <div class="stat"><span class="stat-num">12 wk</span><span class="stat-label">Avg. Visible Results</span></div>
+        </div>
+        <div class="hero-visual">
+          <canvas id="heroCanvas" width="320" height="320"></canvas>
+          <div class="macro-labels">
+            <span class="ml protein">Protein</span>
+            <span class="ml carbs">Carbs</span>
+            <span class="ml fat">Fat</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Form -->
+      <div class="form-panel">
+        <div class="form-card">
+          <h2 class="form-title">Build Your Plan</h2>
+          <p class="form-subtitle">Fill in your details — takes 60 seconds</p>
+
+          <div class="form-group">
+            <label>Age</label>
+            <input type="number" id="age" placeholder="e.g. 28" min="10" max="100" />
+          </div>
+
+          <div class="form-group">
+            <label>Height
+              <div class="unit-toggle">
+                <button class="unit-btn active" data-unit="cm" id="unitCm">cm</button>
+                <button class="unit-btn" data-unit="ft" id="unitFt">ft/in</button>
+              </div>
+            </label>
+            <div id="heightCm" class="height-input">
+              <input type="number" id="heightCmVal" placeholder="e.g. 175" min="100" max="250" />
+            </div>
+            <div id="heightFt" class="height-input hidden">
+              <input type="number" id="heightFtVal" placeholder="ft" min="3" max="8" style="width:48%" />
+              <input type="number" id="heightInVal" placeholder="in" min="0" max="11" style="width:48%" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Weight (kg)</label>
+            <input type="number" id="weight" placeholder="e.g. 72" min="30" max="300" />
+          </div>
+
+          <div class="form-group">
+            <label>Gender (optional)</label>
+            <div class="radio-group">
+              <label class="radio-option">
+                <input type="radio" name="gender" value="male" />
+                <span>Male</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="gender" value="female" />
+                <span>Female</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="gender" value="other" checked />
+                <span>Prefer not to say</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Activity Level</label>
+            <div class="activity-cards">
+              <label class="activity-card">
+                <input type="radio" name="activity" value="sedentary" />
+                <div class="ac-inner">
+                  <span class="ac-icon">🪑</span>
+                  <span class="ac-title">Sedentary</span>
+                  <span class="ac-desc">Desk job, little exercise</span>
+                </div>
+              </label>
+              <label class="activity-card">
+                <input type="radio" name="activity" value="moderate" checked />
+                <div class="ac-inner">
+                  <span class="ac-icon">🚶</span>
+                  <span class="ac-title">Moderate</span>
+                  <span class="ac-desc">3–5 days/week</span>
+                </div>
+              </label>
+              <label class="activity-card">
+                <input type="radio" name="activity" value="active" />
+                <div class="ac-inner">
+                  <span class="ac-icon">🏃</span>
+                  <span class="ac-title">Active</span>
+                  <span class="ac-desc">Daily intense training</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Your Goal</label>
+            <div class="goal-cards">
+              <label class="goal-card">
+                <input type="radio" name="goal" value="loss" />
+                <div class="gc-inner">
+                  <span class="gc-icon">🔥</span>
+                  <span class="gc-title">Weight Loss</span>
+                </div>
+              </label>
+              <label class="goal-card">
+                <input type="radio" name="goal" value="gain" checked />
+                <div class="gc-inner">
+                  <span class="gc-icon">💪</span>
+                  <span class="gc-title">Muscle Gain</span>
+                </div>
+              </label>
+              <label class="goal-card">
+                <input type="radio" name="goal" value="maintenance" />
+                <div class="gc-inner">
+                  <span class="gc-icon">⚖️</span>
+                  <span class="gc-title">Maintenance</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <button class="generate-btn" id="generateBtn">
+            <span class="btn-text">Generate My Plan</span>
+            <span class="btn-icon">→</span>
+          </button>
+          <p class="form-note">100% free · No sign-up required</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════ PAGE 2: RESULTS ══════════════ -->
+  <div id="page-results" class="page">
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="loader-content">
+        <div class="loader-ring"></div>
+        <div class="loader-text" id="loaderText">Analyzing your body data...</div>
+        <div class="loader-steps">
+          <span class="ls active" id="ls1">📊 Computing BMI</span>
+          <span class="ls" id="ls2">🧮 Calculating TDEE</span>
+          <span class="ls" id="ls3">🍽️ Crafting diet plan</span>
+          <span class="ls" id="ls4">🏋️ Building workout</span>
+          <span class="ls" id="ls5">✨ Finalizing insights</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results Header -->
+    <header class="results-header">
+      <button class="back-btn" id="backBtn">← Back</button>
+      <div class="header-logo">NutriAI</div>
+      <div class="header-actions">
+        <button class="action-btn" id="downloadBtn">⬇ Download PDF</button>
+        <button class="action-btn secondary" id="regenerateBtn">🔄 Regenerate</button>
+      </div>
+    </header>
+
+    <div class="results-layout">
+
+      <!-- Sidebar Nav -->
+      <nav class="results-nav">
+        <a href="#section-analysis" class="nav-link active">📊 Analysis</a>
+        <a href="#section-diet" class="nav-link">🍽️ Diet Plan</a>
+        <a href="#section-workout" class="nav-link">🏋️ Workout</a>
+        <a href="#section-insight" class="nav-link">🧠 Insights</a>
+        <a href="#section-hydration" class="nav-link">💧 Hydration</a>
+      </nav>
+
+      <!-- Main Content -->
+      <main class="results-main" id="resultsMain">
+
+        <!-- ── SECTION 1: Body Analysis ── -->
+        <section class="result-section" id="section-analysis">
+          <div class="section-eyebrow">Body Analysis</div>
+          <h2 class="section-title">Your Health Snapshot</h2>
+
+          <div class="analysis-grid">
+            <div class="analysis-card bmi-card">
+              <div class="bmi-visual">
+                <canvas id="bmiGauge" width="200" height="110"></canvas>
+                <div class="bmi-value-display">
+                  <span class="bmi-number" id="bmiNumber">—</span>
+                  <span class="bmi-label" id="bmiLabel">BMI</span>
+                </div>
+              </div>
+              <div class="bmi-status" id="bmiStatus">—</div>
+              <div class="bmi-range-bar">
+                <div class="br-track">
+                  <div class="br-fill" id="bmiBarFill"></div>
+                  <div class="br-marker" id="bmiMarker"></div>
+                </div>
+                <div class="br-labels">
+                  <span>Under</span><span>Normal</span><span>Over</span><span>Obese</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="analysis-card stats-card">
+              <div class="stats-grid">
+                <div class="stat-item">
+                  <span class="si-label">Daily Calories</span>
+                  <span class="si-value" id="tdeeDisplay">—</span>
+                  <span class="si-unit">kcal/day</span>
+                </div>
+                <div class="stat-item">
+                  <span class="si-label">Target Calories</span>
+                  <span class="si-value" id="targetCalDisplay">—</span>
+                  <span class="si-unit">kcal/day</span>
+                </div>
+                <div class="stat-item">
+                  <span class="si-label">Protein Goal</span>
+                  <span class="si-value" id="proteinGoalDisplay">—</span>
+                  <span class="si-unit">g/day</span>
+                </div>
+                <div class="stat-item">
+                  <span class="si-label">Water Intake</span>
+                  <span class="si-value" id="waterDisplay">—</span>
+                  <span class="si-unit">liters/day</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="analysis-card macro-card">
+              <div class="macro-chart-wrap">
+                <canvas id="macroDonut" width="160" height="160"></canvas>
+                <div class="donut-center">
+                  <span class="dc-label">Macros</span>
+                </div>
+              </div>
+              <div class="macro-legend" id="macroLegend"></div>
+            </div>
+
+            <div class="analysis-card ai-analysis-card">
+              <div class="aac-icon">🤖</div>
+              <h3>AI Health Analysis</h3>
+              <p id="aiAnalysisText" class="typing-text"></p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── SECTION 2: Diet Plan ── -->
+        <section class="result-section" id="section-diet">
+          <div class="section-eyebrow">Nutrition Plan</div>
+          <h2 class="section-title">Your Daily Diet</h2>
+          <div class="diet-timeline" id="dietTimeline"></div>
+        </section>
+
+        <!-- ── SECTION 3: Workout Plan ── -->
+        <section class="result-section" id="section-workout">
+          <div class="section-eyebrow">Training Plan</div>
+          <h2 class="section-title">Your Workout Schedule</h2>
+          <div class="workout-header-info" id="workoutHeaderInfo"></div>
+          <div class="workout-grid" id="workoutGrid"></div>
+          <div class="cardio-section" id="cardioSection"></div>
+        </section>
+
+        <!-- ── SECTION 4: AI Insights ── -->
+        <section class="result-section" id="section-insight">
+          <div class="section-eyebrow">Personalized Intelligence</div>
+          <h2 class="section-title">Your AI Coach Says</h2>
+          <div class="insight-grid" id="insightGrid"></div>
+        </section>
+
+        <!-- ── SECTION 5: Hydration & Steps ── -->
+        <section class="result-section" id="section-hydration">
+          <div class="section-eyebrow">Lifestyle Targets</div>
+          <h2 class="section-title">Daily Habits</h2>
+          <div class="habits-grid" id="habitsGrid"></div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
