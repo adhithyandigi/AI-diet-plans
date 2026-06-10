@@ -217,142 +217,158 @@ const FOOD_DB = {
   // Supplement (per 100g — 1 scoop ~30g = ~120 cal, 25g protein)
   wheyProtein:   { name: 'Whey Protein Shake',     cal: 400, p: 83.0, c: 10.0, f:  5.0 },
 };
-
-// Scale a food to grams. All DB values are per 100g.
-function scaleFoodItem(food, grams) {
-  const g = Math.round(grams);
-  const scale = g / 100;
-  return {
-    name: food.name,
-    qty: g + 'g',
-    cal: Math.round(food.cal * scale),
-    p: +(food.p * scale).toFixed(1),
-    c: +(food.c * scale).toFixed(1),
-    f: +(food.f * scale).toFixed(1),
-  };
-}
+// ═══════════════════════════════════════
+// AI DIET PLAN GENERATOR (Claude API)
+// ═══════════════════════════════════════
 
 /**
- * Build one meal by solving backwards from calorie + macro targets.
- * 1. Scale protein food to hit the meal's protein target.
- * 2. Scale fat food to fill remaining fat need.
- * 3. Scale carb food to fill remaining calories.
- * 4. Add a fixed 150g veggie portion (negligible cals).
+ * Build a structured diet prompt for Claude.
+ * Returns 4 meals as JSON. Each meal has: time, name, emoji, items[]
+ * Each item: name, qty, cal, p (protein g), c (carbs g), f (fat g), note (optional local tip)
  */
-function buildMeal(time, name, emoji, mealCal, mealProtein, mealFat, proteinFood, carbFood, fatFood, veggieFood) {
-  const items = [];
+async function generateDietPlan(targetCal, macros, goal, weight, bmi, age, heightCm, gender, activity, location) {
+  const goalLabel  = { loss: 'Fat Loss / Weight Loss', gain: 'Muscle Gain / Bulking', maintenance: 'Body Maintenance / Recomposition' }[goal];
+  const bmiLabel   = bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese';
+  const actLabel   = { sedentary: 'Sedentary (desk job, little exercise)', moderate: 'Moderately Active (3-5 days/week)', active: 'Very Active (daily intense training)' }[activity];
+  const locationStr = location && location.trim() ? location.trim() : 'Unknown';
 
-  // 1. Protein food — grams needed to hit protein target
-  const proteinGrams = Math.max(50, Math.round((mealProtein / proteinFood.p) * 100));
-  const pItem = scaleFoodItem(proteinFood, proteinGrams);
-  items.push(pItem);
+  const prompt = `You are a professional dietitian and nutritionist. Generate a highly personalised full-day diet plan for this client.
 
-  // 2. Fat food — grams to cover remaining fat (after protein food's fat)
-  const fatRemaining = Math.max(0, mealFat - pItem.f);
-  // avoid divide-by-zero for zero-fat foods (oliveOil is 100% fat so fine)
-  const fatFoodGrams = fatFood.f > 0
-    ? Math.min(50, Math.max(5, Math.round((fatRemaining / fatFood.f) * 100)))
-    : 10;
-  if (fatFood !== proteinFood) {
-    items.push(scaleFoodItem(fatFood, fatFoodGrams));
+CLIENT PROFILE:
+- Age: ${age} years
+- Height: ${heightCm.toFixed(0)} cm
+- Weight: ${weight} kg
+- Gender: ${gender}
+- BMI: ${bmi.toFixed(1)} (${bmiLabel})
+- Activity Level: ${actLabel}
+- Goal: ${goalLabel}
+- Location / Region: ${locationStr}
+
+DAILY TARGETS:
+- Total Calories: ${targetCal} kcal
+- Protein: ${macros.protein}g
+- Carbs: ${macros.carbs}g
+- Fat: ${macros.fat}g
+
+CRITICAL REQUIREMENTS:
+1. ALL foods must be EASILY AVAILABLE and COMMON in the client's location/region (${locationStr}). Use local staples, not obscure Western health foods unless the region is Western.
+2. Food quantities must be mathematically scaled so the 4 meals together hit ~${targetCal} kcal, ~${macros.protein}g protein, ~${macros.carbs}g carbs, ~${macros.fat}g fat.
+3. Each meal must have at least 3-5 food items.
+4. Include breakfast, lunch, evening snack, and dinner with appropriate local meal times.
+5. Tailor portions to this person's exact weight (${weight}kg) and goal (${goalLabel}).
+6. Prefer whole, minimally processed local foods. Add a brief note on why each meal is good for this person.
+
+Respond ONLY with a valid JSON object. No markdown, no backticks, no explanation. Exactly this structure:
+{
+  "locationNote": "short note about why these foods suit this location (1 sentence)",
+  "meals": [
+    {
+      "time": "7:00 – 8:00 AM",
+      "name": "Breakfast",
+      "emoji": "🌅",
+      "mealNote": "brief reason this meal suits the client",
+      "items": [
+        { "name": "Food Name", "qty": "150g", "cal": 210, "p": 18.0, "c": 12.0, "f": 8.0 }
+      ]
+    },
+    {
+      "time": "12:30 – 1:30 PM",
+      "name": "Lunch",
+      "emoji": "☀️",
+      "mealNote": "brief reason this meal suits the client",
+      "items": [...]
+    },
+    {
+      "time": "4:00 – 5:00 PM",
+      "name": "Evening Snack",
+      "emoji": "🌿",
+      "mealNote": "brief reason this meal suits the client",
+      "items": [...]
+    },
+    {
+      "time": "7:30 – 8:30 PM",
+      "name": "Dinner",
+      "emoji": "🌙",
+      "mealNote": "brief reason this meal suits the client",
+      "items": [...]
+    }
+  ]
+}`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) throw new Error(`API error ${response.status}`);
+    const data = await response.json();
+    const raw = data.content.map(b => b.text || '').join('').trim();
+    // Strip any accidental markdown fences
+    const clean = raw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
+    const parsed = JSON.parse(clean);
+    return parsed; // { locationNote, meals[] }
+  } catch (err) {
+    console.error('AI diet generation failed, using fallback:', err);
+    return generateFallbackDietPlan(targetCal, macros, goal, weight, bmi);
   }
-
-  // 3. Veggie (fixed 150g)
-  if (veggieFood) {
-    items.push(scaleFoodItem(veggieFood, 150));
-  }
-
-  // 4. Carb food — fill whatever calories remain
-  const calUsed = items.reduce((s, i) => s + i.cal, 0);
-  const calLeft = Math.max(0, mealCal - calUsed);
-  const carbGrams = carbFood.cal > 0
-    ? Math.min(500, Math.max(30, Math.round((calLeft / carbFood.cal) * 100)))
-    : 100;
-  items.push(scaleFoodItem(carbFood, carbGrams));
-
-  return { time, name, emoji, target: mealCal, items };
 }
 
-function generateDietPlan(targetCal, macros, goal, weight, bmi) {
+// ── Fallback (original logic) if API fails ──
+function generateFallbackDietPlan(targetCal, macros, goal, weight, bmi) {
   const isLoss = goal === 'loss';
   const isGain = goal === 'gain';
-
-  // Calorie split across 4 meals — different ratios per goal
   const dist = isLoss  ? [0.25, 0.35, 0.10, 0.30]
-              : isGain ? [0.28, 0.32, 0.12, 0.28]
+             : isGain  ? [0.28, 0.32, 0.12, 0.28]
                        : [0.25, 0.30, 0.15, 0.30];
 
-  // Per-meal macro targets scaled by same ratio as calories
   const meal = (i) => ({
     cal:     Math.round(targetCal    * dist[i]),
     protein: Math.round(macros.protein * dist[i]),
     fat:     Math.round(macros.fat   * dist[i]),
   });
 
+  const buildFallback = (time, name, emoji, mealCal, mealPro, pFood, cFood, fFood, vFood) => {
+    const items = [];
+    const pGrams = Math.max(50, Math.round((mealPro / pFood.p) * 100));
+    const pItem  = { name: pFood.name, qty: pGrams+'g', cal: Math.round(pFood.cal*pGrams/100), p: +(pFood.p*pGrams/100).toFixed(1), c: +(pFood.c*pGrams/100).toFixed(1), f: +(pFood.f*pGrams/100).toFixed(1) };
+    items.push(pItem);
+    const fatRem = Math.max(0, meal(0).fat - pItem.f);
+    const fGrams = fFood.f > 0 ? Math.min(50, Math.max(5, Math.round((fatRem / fFood.f) * 100))) : 10;
+    if (fFood !== pFood) items.push({ name: fFood.name, qty: fGrams+'g', cal: Math.round(fFood.cal*fGrams/100), p: +(fFood.p*fGrams/100).toFixed(1), c: +(fFood.c*fGrams/100).toFixed(1), f: +(fFood.f*fGrams/100).toFixed(1) });
+    if (vFood) items.push({ name: vFood.name, qty: '150g', cal: Math.round(vFood.cal*1.5), p: +(vFood.p*1.5).toFixed(1), c: +(vFood.c*1.5).toFixed(1), f: +(vFood.f*1.5).toFixed(1) });
+    const calUsed = items.reduce((s,i) => s+i.cal, 0);
+    const calLeft = Math.max(0, mealCal - calUsed);
+    const cGrams  = cFood.cal > 0 ? Math.min(500, Math.max(30, Math.round((calLeft/cFood.cal)*100))) : 100;
+    items.push({ name: cFood.name, qty: cGrams+'g', cal: Math.round(cFood.cal*cGrams/100), p: +(cFood.p*cGrams/100).toFixed(1), c: +(cFood.c*cGrams/100).toFixed(1), f: +(cFood.f*cGrams/100).toFixed(1) });
+    return { time, name, emoji, mealNote: '', items };
+  };
+
   const meals = [];
-
-  // ── BREAKFAST ──
   if (isLoss) {
-    meals.push(buildMeal('7:00 – 8:00 AM', 'Breakfast', '🌅',
-      meal(0).cal, meal(0).protein, meal(0).fat,
-      FOOD_DB.eggWhites, FOOD_DB.oats, FOOD_DB.almonds, null));
+    meals.push(buildFallback('7:00 – 8:00 AM','Breakfast','🌅', meal(0).cal, meal(0).protein, FOOD_DB.eggWhites, FOOD_DB.oats, FOOD_DB.almonds, null));
+    meals.push(buildFallback('12:30 – 1:30 PM','Lunch','☀️', meal(1).cal, meal(1).protein, FOOD_DB.chickenBreast, FOOD_DB.brownRice, FOOD_DB.oliveOil, FOOD_DB.broccoli));
+    meals.push(buildFallback('4:00 – 5:00 PM','Evening Snack','🌿', meal(2).cal, meal(2).protein, FOOD_DB.greekYogurt, FOOD_DB.apple, FOOD_DB.almonds, null));
+    meals.push(buildFallback('7:30 – 8:30 PM','Dinner','🌙', meal(3).cal, meal(3).protein, FOOD_DB.tunaCanned, FOOD_DB.sweetPotato, FOOD_DB.oliveOil, FOOD_DB.broccoli));
   } else if (isGain) {
-    meals.push(buildMeal('7:00 – 8:00 AM', 'Breakfast', '🌅',
-      meal(0).cal, meal(0).protein, meal(0).fat,
-      FOOD_DB.eggs, FOOD_DB.oats, FOOD_DB.peanutButter, null));
+    meals.push(buildFallback('7:00 – 8:00 AM','Breakfast','🌅', meal(0).cal, meal(0).protein, FOOD_DB.eggs, FOOD_DB.oats, FOOD_DB.peanutButter, null));
+    meals.push(buildFallback('12:30 – 1:30 PM','Lunch','☀️', meal(1).cal, meal(1).protein, FOOD_DB.chickenBreast, FOOD_DB.brownRice, FOOD_DB.avocado, FOOD_DB.mixedVeg));
+    meals.push(buildFallback('4:00 – 5:00 PM','Evening Snack','🌿', meal(2).cal, meal(2).protein, FOOD_DB.wheyProtein, FOOD_DB.banana, FOOD_DB.peanutButter, null));
+    meals.push(buildFallback('7:30 – 8:30 PM','Dinner','🌙', meal(3).cal, meal(3).protein, FOOD_DB.salmonFillet, FOOD_DB.sweetPotato, FOOD_DB.almonds, FOOD_DB.spinach));
   } else {
-    meals.push(buildMeal('7:00 – 8:00 AM', 'Breakfast', '🌅',
-      meal(0).cal, meal(0).protein, meal(0).fat,
-      FOOD_DB.greekYogurt, FOOD_DB.wholeWheatBread, FOOD_DB.almonds, null));
+    meals.push(buildFallback('7:00 – 8:00 AM','Breakfast','🌅', meal(0).cal, meal(0).protein, FOOD_DB.greekYogurt, FOOD_DB.wholeWheatBread, FOOD_DB.almonds, null));
+    meals.push(buildFallback('12:30 – 1:30 PM','Lunch','☀️', meal(1).cal, meal(1).protein, FOOD_DB.salmonFillet, FOOD_DB.quinoa, FOOD_DB.oliveOil, FOOD_DB.spinach));
+    meals.push(buildFallback('4:00 – 5:00 PM','Evening Snack','🌿', meal(2).cal, meal(2).protein, FOOD_DB.cottage, FOOD_DB.apple, FOOD_DB.almonds, null));
+    meals.push(buildFallback('7:30 – 8:30 PM','Dinner','🌙', meal(3).cal, meal(3).protein, FOOD_DB.chickenBreast, FOOD_DB.lentils, FOOD_DB.oliveOil, FOOD_DB.mixedVeg));
   }
-
-  // ── LUNCH ──
-  if (isLoss) {
-    meals.push(buildMeal('12:30 – 1:30 PM', 'Lunch', '☀️',
-      meal(1).cal, meal(1).protein, meal(1).fat,
-      FOOD_DB.chickenBreast, FOOD_DB.brownRice, FOOD_DB.oliveOil, FOOD_DB.broccoli));
-  } else if (isGain) {
-    meals.push(buildMeal('12:30 – 1:30 PM', 'Lunch', '☀️',
-      meal(1).cal, meal(1).protein, meal(1).fat,
-      FOOD_DB.chickenBreast, FOOD_DB.brownRice, FOOD_DB.avocado, FOOD_DB.mixedVeg));
-  } else {
-    meals.push(buildMeal('12:30 – 1:30 PM', 'Lunch', '☀️',
-      meal(1).cal, meal(1).protein, meal(1).fat,
-      FOOD_DB.salmonFillet, FOOD_DB.quinoa, FOOD_DB.oliveOil, FOOD_DB.spinach));
-  }
-
-  // ── SNACK ──
-  if (isLoss) {
-    meals.push(buildMeal('4:00 – 5:00 PM', 'Evening Snack', '🌿',
-      meal(2).cal, meal(2).protein, meal(2).fat,
-      FOOD_DB.greekYogurt, FOOD_DB.apple, FOOD_DB.almonds, null));
-  } else if (isGain) {
-    meals.push(buildMeal('4:00 – 5:00 PM', 'Evening Snack', '🌿',
-      meal(2).cal, meal(2).protein, meal(2).fat,
-      FOOD_DB.wheyProtein, FOOD_DB.banana, FOOD_DB.peanutButter, null));
-  } else {
-    meals.push(buildMeal('4:00 – 5:00 PM', 'Evening Snack', '🌿',
-      meal(2).cal, meal(2).protein, meal(2).fat,
-      FOOD_DB.cottage, FOOD_DB.apple, FOOD_DB.almonds, null));
-  }
-
-  // ── DINNER ──
-  if (isLoss) {
-    meals.push(buildMeal('7:30 – 8:30 PM', 'Dinner', '🌙',
-      meal(3).cal, meal(3).protein, meal(3).fat,
-      FOOD_DB.tunaCanned, FOOD_DB.sweetPotato, FOOD_DB.oliveOil, FOOD_DB.broccoli));
-  } else if (isGain) {
-    meals.push(buildMeal('7:30 – 8:30 PM', 'Dinner', '🌙',
-      meal(3).cal, meal(3).protein, meal(3).fat,
-      FOOD_DB.salmonFillet, FOOD_DB.sweetPotato, FOOD_DB.almonds, FOOD_DB.spinach));
-  } else {
-    meals.push(buildMeal('7:30 – 8:30 PM', 'Dinner', '🌙',
-      meal(3).cal, meal(3).protein, meal(3).fat,
-      FOOD_DB.chickenBreast, FOOD_DB.lentils, FOOD_DB.oliveOil, FOOD_DB.mixedVeg));
-  }
-
-  return meals;
+  return { locationNote: null, meals };
 }
+
 
 // ═══════════════════════════════════════
 // WORKOUT PLAN GENERATOR
@@ -686,15 +702,27 @@ function renderMacroDonut(macros, targetCal) {
   }
 }
 
-function renderDietTimeline(meals) {
+function renderDietTimeline(dietData, location) {
   const container = document.getElementById('dietTimeline');
   if (!container) return;
 
-  container.innerHTML = meals.map(meal => {
-    const totalCal = meal.items.reduce((s, i) => s + i.cal, 0);
-    const totalP = meal.items.reduce((s, i) => s + i.p, 0).toFixed(1);
-    const totalC = meal.items.reduce((s, i) => s + i.c, 0).toFixed(1);
-    const totalF = meal.items.reduce((s, i) => s + i.f, 0).toFixed(1);
+  // dietData can be { locationNote, meals[] } from AI or just { meals[] } from fallback
+  const meals       = dietData.meals || dietData;
+  const locationNote = dietData.locationNote || null;
+
+  let html = '';
+
+  // Location banner
+  if (location && location.trim()) {
+    html += `<div class="diet-location-note">📍 <span>Personalised for ${location.trim()}</span>${locationNote ? ' — ' + locationNote : ' — Foods chosen for local availability in your region.'}</div>`;
+  }
+
+  html += meals.map(meal => {
+    // Support both AI flat items and original scaleFoodItem items
+    const totalCal = meal.items.reduce((s, i) => s + (i.cal || 0), 0);
+    const totalP   = meal.items.reduce((s, i) => s + (i.p || 0), 0).toFixed(1);
+    const totalC   = meal.items.reduce((s, i) => s + (i.c || 0), 0).toFixed(1);
+    const totalF   = meal.items.reduce((s, i) => s + (i.f || 0), 0).toFixed(1);
 
     return `
     <div class="meal-card">
@@ -710,15 +738,16 @@ function renderDietTimeline(meals) {
         </div>
       </div>
       <div class="meal-body">
+        ${meal.mealNote ? `<div style="font-size:0.78rem;color:var(--text3);font-style:italic;margin-bottom:12px;padding:8px 12px;background:var(--surface2);border-radius:8px;">💡 ${meal.mealNote}</div>` : ''}
         <div class="meal-items">
           ${meal.items.map(item => `
             <div class="meal-item">
               <div>
                 <div class="mi-name">${item.name} <span style="font-weight:400;color:var(--text3)">(${item.qty})</span></div>
                 <div class="mi-macros">
-                  <span class="mi-p">P: ${item.p}g</span>
-                  <span class="mi-c">C: ${item.c}g</span>
-                  <span class="mi-f">F: ${item.f}g</span>
+                  <span class="mi-p">P: ${(+item.p).toFixed(1)}g</span>
+                  <span class="mi-c">C: ${(+item.c).toFixed(1)}g</span>
+                  <span class="mi-f">F: ${(+item.f).toFixed(1)}g</span>
                   <span style="color:var(--text3);font-weight:400">${item.cal} kcal</span>
                 </div>
               </div>
@@ -735,6 +764,8 @@ function renderDietTimeline(meals) {
     </div>
     `;
   }).join('');
+
+  container.innerHTML = html;
 }
 
 function renderWorkout(workout, level, goal) {
@@ -906,61 +937,72 @@ async function runLoadingSequence() {
 
 async function generateAndShow() {
   // Collect form data
-  const age = parseInt(document.getElementById('age').value);
-  const weight = parseFloat(document.getElementById('weight').value);
+  const age      = parseInt(document.getElementById('age').value);
+  const weight   = parseFloat(document.getElementById('weight').value);
   const heightCm = getHeightCm();
-  const gender = document.querySelector('input[name="gender"]:checked')?.value || 'other';
+  const gender   = document.querySelector('input[name="gender"]:checked')?.value || 'other';
   const activity = document.querySelector('input[name="activity"]:checked')?.value || 'moderate';
-  const goal = document.querySelector('input[name="goal"]:checked')?.value || 'maintenance';
+  const goal     = document.querySelector('input[name="goal"]:checked')?.value || 'maintenance';
+  const location = (document.getElementById('location')?.value || '').trim();
 
   // Validation
-  if (!age || age < 10 || age > 100) { alert('Please enter a valid age (10–100)'); return; }
-  if (!weight || weight < 30 || weight > 300) { alert('Please enter a valid weight (30–300 kg)'); return; }
+  if (!age || age < 10 || age > 100)             { alert('Please enter a valid age (10–100)'); return; }
+  if (!weight || weight < 30 || weight > 300)    { alert('Please enter a valid weight (30–300 kg)'); return; }
   if (!heightCm || heightCm < 100 || heightCm > 250) { alert('Please enter a valid height'); return; }
 
-  userData = { age, weight, heightCm, gender, activity, goal };
+  userData = { age, weight, heightCm, gender, activity, goal, location };
 
   // Show results page with loading
   pageForm.classList.remove('active');
   pageResults.classList.add('active');
   loadingOverlay.classList.remove('hidden');
 
-  // Run loading animation
-  await runLoadingSequence();
+  // Run loading animation (runs in parallel with AI call)
+  const loadingDone = runLoadingSequence();
 
-  // Do all calculations
-  const bmi = calcBMI(weight, heightCm);
-  const bmiStatus = getBMIStatus(bmi);
-  const tdee = calcTDEE(weight, heightCm, age, gender, activity);
-  const targetCal = getTargetCalories(tdee, goal, bmi);
-  const macros = getMacros(targetCal, weight, goal);
-  const water = getWaterIntake(weight, activity);
-  const level = getLevel(age, activity, bmi);
-  const meals = generateDietPlan(targetCal, macros, goal, weight, bmi);
-  const workout = generateWorkout(goal, level, weight, age);
-  const insights = generateInsights(goal, bmi, weight, macros, targetCal, level);
+  // Do all calculations (fast, synchronous)
+  const bmi         = calcBMI(weight, heightCm);
+  const bmiStatus   = getBMIStatus(bmi);
+  const tdee        = calcTDEE(weight, heightCm, age, gender, activity);
+  const targetCal   = getTargetCalories(tdee, goal, bmi);
+  const macros      = getMacros(targetCal, weight, goal);
+  const water       = getWaterIntake(weight, activity);
+  const level       = getLevel(age, activity, bmi);
+  const workout     = generateWorkout(goal, level, weight, age);
+  const insights    = generateInsights(goal, bmi, weight, macros, targetCal, level);
   const analysisText = generateAnalysisText(bmi, bmiStatus, goal, weight, targetCal, macros, activity);
 
-  planData = { bmi, bmiStatus, tdee, targetCal, macros, water, level, meals, workout, insights };
+  // Show diet loading placeholder while AI generates
+  const dietContainer = document.getElementById('dietTimeline');
+  if (dietContainer) {
+    dietContainer.innerHTML = `<div class="ai-loading-meal"><div class="loader-ring"></div><span>🤖 AI is crafting your personalised ${location ? location + ' ' : ''}diet plan…</span></div>`;
+  }
+
+  // Generate AI diet plan (async — may take a moment)
+  const dietResult = generateDietPlan(targetCal, macros, goal, weight, bmi, age, heightCm, gender, activity, location);
+
+  // Wait for both loading animation AND AI diet to finish
+  const [dietData] = await Promise.all([dietResult, loadingDone]);
+
+  planData = { bmi, bmiStatus, tdee, targetCal, macros, water, level, meals: dietData, workout, insights };
 
   // Save to localStorage
   localStorage.setItem('nutriai-plan', JSON.stringify({ userData, planData: { bmi, bmiStatus, tdee, targetCal, macros, water } }));
 
-  // Hide loading
+  // Hide loading overlay
   loadingOverlay.classList.add('hidden');
 
   // Render all sections
   document.getElementById('bmiNumber').textContent = bmi.toFixed(1);
-
   const bmiStatusEl = document.getElementById('bmiStatus');
   bmiStatusEl.textContent = bmiStatus.label;
   bmiStatusEl.style.background = bmiStatus.bg;
   bmiStatusEl.style.color = bmiStatus.color;
 
-  document.getElementById('tdeeDisplay').textContent = tdee.toLocaleString();
+  document.getElementById('tdeeDisplay').textContent    = tdee.toLocaleString();
   document.getElementById('targetCalDisplay').textContent = targetCal.toLocaleString();
   document.getElementById('proteinGoalDisplay').textContent = macros.protein;
-  document.getElementById('waterDisplay').textContent = water;
+  document.getElementById('waterDisplay').textContent   = water;
 
   // BMI marker position
   const clampedBMI = Math.max(10, Math.min(45, bmi));
@@ -970,7 +1012,7 @@ async function generateAndShow() {
   // Animate sections in sequence
   setTimeout(() => renderBMIGauge(bmi, bmiStatus), 100);
   setTimeout(() => renderMacroDonut(macros, targetCal), 200);
-  setTimeout(() => renderDietTimeline(meals), 300);
+  setTimeout(() => renderDietTimeline(dietData, location), 300);
   setTimeout(() => renderWorkout(workout, level, goal), 400);
   setTimeout(() => renderInsights(insights, goal), 500);
   setTimeout(() => renderHabits(water, weight, activity), 600);
