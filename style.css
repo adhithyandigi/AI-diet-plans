@@ -401,6 +401,59 @@ input::placeholder { color: var(--text3); }
 
 .form-note { text-align: center; font-size: 0.75rem; color: var(--text3); margin-top: 12px; }
 
+/* Location input */
+.location-input-wrap { position: relative; }
+.location-input-wrap input { padding-left: 36px; }
+.location-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1rem;
+  pointer-events: none;
+}
+.location-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent-dark);
+  background: var(--accent-light);
+  border-radius: 50px;
+  padding: 3px 10px;
+  margin-top: 5px;
+}
+.diet-location-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  font-size: 0.82rem;
+  color: var(--text2);
+}
+.diet-location-note span { font-weight: 700; color: var(--accent); }
+.ai-loading-meal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text3);
+  font-size: 0.9rem;
+}
+.ai-loading-meal .loader-ring {
+  width: 24px;
+  height: 24px;
+  border-width: 3px;
+}
+
 /* ═══════════════════════════════════════
    PAGE 2 — RESULTS
 ═══════════════════════════════════════ */
