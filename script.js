@@ -222,9 +222,9 @@ const FOOD_DB = {
 // ═══════════════════════════════════════
 
 /**
- * Build a structured diet prompt for Claude.
- * Returns 4 meals as JSON. Each meal has: time, name, emoji, items[]
- * Each item: name, qty, cal, p (protein g), c (carbs g), f (fat g), note (optional local tip)
+ * Generate a 7-day weekly diet plan via Claude API.
+ * Each day has 4 meals with different foods but same macro targets.
+ * Returns: { locationNote, weeklyPlan: [ { day, meals[] }, ... ] }
  */
 async function generateDietPlan(targetCal, macros, goal, weight, bmi, age, heightCm, gender, activity, location) {
   const goalLabel  = { loss: 'Fat Loss / Weight Loss', gain: 'Muscle Gain / Bulking', maintenance: 'Body Maintenance / Recomposition' }[goal];
@@ -232,66 +232,51 @@ async function generateDietPlan(targetCal, macros, goal, weight, bmi, age, heigh
   const actLabel   = { sedentary: 'Sedentary (desk job, little exercise)', moderate: 'Moderately Active (3-5 days/week)', active: 'Very Active (daily intense training)' }[activity];
   const locationStr = location && location.trim() ? location.trim() : 'Unknown';
 
-  const prompt = `You are a professional dietitian and nutritionist. Generate a highly personalised full-day diet plan for this client.
+  const prompt = `You are a registered dietitian generating a medically accurate, personalised 7-day weekly diet plan. This is for a real person with real health goals — accuracy is critical.
 
 CLIENT PROFILE:
-- Age: ${age} years
-- Height: ${heightCm.toFixed(0)} cm
-- Weight: ${weight} kg
-- Gender: ${gender}
-- BMI: ${bmi.toFixed(1)} (${bmiLabel})
-- Activity Level: ${actLabel}
-- Goal: ${goalLabel}
-- Location / Region: ${locationStr}
+- Age: ${age} years | Height: ${heightCm.toFixed(0)} cm | Weight: ${weight} kg | Gender: ${gender}
+- BMI: ${bmi.toFixed(1)} (${bmiLabel}) | Activity: ${actLabel}
+- Goal: ${goalLabel} | Location: ${locationStr}
 
-DAILY TARGETS:
-- Total Calories: ${targetCal} kcal
-- Protein: ${macros.protein}g
-- Carbs: ${macros.carbs}g
-- Fat: ${macros.fat}g
+DAILY MACRO TARGETS (must be hit within ±5% each day):
+- Calories: ${targetCal} kcal | Protein: ${macros.protein}g | Carbs: ${macros.carbs}g | Fat: ${macros.fat}g
 
-CRITICAL REQUIREMENTS:
-1. ALL foods must be EASILY AVAILABLE and COMMON in the client's location/region (${locationStr}). Use local staples, not obscure Western health foods unless the region is Western.
-2. Food quantities must be mathematically scaled so the 4 meals together hit ~${targetCal} kcal, ~${macros.protein}g protein, ~${macros.carbs}g carbs, ~${macros.fat}g fat.
-3. Each meal must have at least 3-5 food items.
-4. Include breakfast, lunch, evening snack, and dinner with appropriate local meal times.
-5. Tailor portions to this person's exact weight (${weight}kg) and goal (${goalLabel}).
-6. Prefer whole, minimally processed local foods. Add a brief note on why each meal is good for this person.
+STRICT RULES — follow every one:
+1. Generate exactly 7 days (Monday through Sunday).
+2. Each day must have exactly 4 meals: Breakfast, Lunch, Evening Snack, Dinner.
+3. Every day must use DIFFERENT foods — no two days should share the same meal combination. Rotate proteins, carbs, and vegetables across days for nutritional variety.
+4. ALL foods must be locally available and commonly eaten in ${locationStr}. Use regional staples. No obscure Western supplements unless the region is Western.
+5. Macros per item must be nutritionally accurate (use USDA/standard values). Quantities must add up mathematically to hit the daily targets.
+6. Each food item must list: name, qty (e.g. "150g"), cal, p (protein g), c (carbs g), f (fat g).
+7. Each meal must have 3–5 food items.
+8. Vary cooking methods: grilled, boiled, stir-fried, raw, baked etc — do not repeat the same preparation every day.
+9. Include a brief mealNote (1 sentence) explaining why this meal suits this specific client.
+10. Sunday can be a slightly more flexible "cheat-clean" day — still hitting targets but with slightly more enjoyable food choices.
 
-Respond ONLY with a valid JSON object. No markdown, no backticks, no explanation. Exactly this structure:
+Respond ONLY with valid JSON. No markdown, no backticks, no explanation outside the JSON. Structure:
 {
-  "locationNote": "short note about why these foods suit this location (1 sentence)",
-  "meals": [
+  "locationNote": "1-sentence note on why these foods suit ${locationStr}",
+  "weeklyPlan": [
     {
-      "time": "7:00 – 8:00 AM",
-      "name": "Breakfast",
-      "emoji": "🌅",
-      "mealNote": "brief reason this meal suits the client",
-      "items": [
-        { "name": "Food Name", "qty": "150g", "cal": 210, "p": 18.0, "c": 12.0, "f": 8.0 }
+      "day": "Monday",
+      "dayNote": "optional 1-sentence theme for this day e.g. High-carb refeed",
+      "meals": [
+        {
+          "time": "7:00 – 8:00 AM",
+          "name": "Breakfast",
+          "emoji": "🌅",
+          "mealNote": "why this meal suits the client",
+          "items": [
+            { "name": "Food Name", "qty": "150g", "cal": 210, "p": 18.0, "c": 12.0, "f": 8.0 }
+          ]
+        },
+        { "time": "12:30 – 1:30 PM", "name": "Lunch", "emoji": "☀️", "mealNote": "...", "items": [...] },
+        { "time": "4:00 – 5:00 PM", "name": "Evening Snack", "emoji": "🌿", "mealNote": "...", "items": [...] },
+        { "time": "7:30 – 8:30 PM", "name": "Dinner", "emoji": "🌙", "mealNote": "...", "items": [...] }
       ]
-    },
-    {
-      "time": "12:30 – 1:30 PM",
-      "name": "Lunch",
-      "emoji": "☀️",
-      "mealNote": "brief reason this meal suits the client",
-      "items": [...]
-    },
-    {
-      "time": "4:00 – 5:00 PM",
-      "name": "Evening Snack",
-      "emoji": "🌿",
-      "mealNote": "brief reason this meal suits the client",
-      "items": [...]
-    },
-    {
-      "time": "7:30 – 8:30 PM",
-      "name": "Dinner",
-      "emoji": "🌙",
-      "mealNote": "brief reason this meal suits the client",
-      "items": [...]
     }
+    // ... repeat for Tuesday through Sunday
   ]
 }`;
 
@@ -301,7 +286,7 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no explanation
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
+        max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -309,12 +294,11 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no explanation
     if (!response.ok) throw new Error(`API error ${response.status}`);
     const data = await response.json();
     const raw = data.content.map(b => b.text || '').join('').trim();
-    // Strip any accidental markdown fences
     const clean = raw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
     const parsed = JSON.parse(clean);
-    return parsed; // { locationNote, meals[] }
+    return parsed; // { locationNote, weeklyPlan[] }
   } catch (err) {
-    console.error('AI diet generation failed, using fallback:', err);
+    console.error('AI weekly diet generation failed, using fallback:', err);
     return generateFallbackDietPlan(targetCal, macros, goal, weight, bmi);
   }
 }
@@ -366,7 +350,25 @@ function generateFallbackDietPlan(targetCal, macros, goal, weight, bmi) {
     meals.push(buildFallback('4:00 – 5:00 PM','Evening Snack','🌿', meal(2).cal, meal(2).protein, FOOD_DB.cottage, FOOD_DB.apple, FOOD_DB.almonds, null));
     meals.push(buildFallback('7:30 – 8:30 PM','Dinner','🌙', meal(3).cal, meal(3).protein, FOOD_DB.chickenBreast, FOOD_DB.lentils, FOOD_DB.oliveOil, FOOD_DB.mixedVeg));
   }
-  return { locationNote: null, meals };
+  // Wrap single day into a full week (fallback repeats with minor variation)
+  const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const weeklyPlan = days.map((day, i) => {
+    const proteinCycle = isLoss
+      ? [FOOD_DB.eggWhites, FOOD_DB.chickenBreast, FOOD_DB.tunaCanned, FOOD_DB.salmonFillet, FOOD_DB.greekYogurt, FOOD_DB.eggs, FOOD_DB.cottage]
+      : isGain
+      ? [FOOD_DB.eggs, FOOD_DB.chickenBreast, FOOD_DB.salmonFillet, FOOD_DB.cottage, FOOD_DB.tunaCanned, FOOD_DB.greekYogurt, FOOD_DB.eggWhites]
+      : [FOOD_DB.greekYogurt, FOOD_DB.salmonFillet, FOOD_DB.chickenBreast, FOOD_DB.eggs, FOOD_DB.tunaCanned, FOOD_DB.cottage, FOOD_DB.lentils];
+    const carbCycle = [FOOD_DB.oats, FOOD_DB.brownRice, FOOD_DB.sweetPotato, FOOD_DB.quinoa, FOOD_DB.wholeWheatBread, FOOD_DB.banana, FOOD_DB.oats];
+    const vegCycle  = [null, FOOD_DB.broccoli, FOOD_DB.spinach, FOOD_DB.mixedVeg, FOOD_DB.broccoli, FOOD_DB.spinach, null];
+    const pSrc = proteinCycle[i], cSrc = carbCycle[i], vSrc = vegCycle[i];
+    const dayMeals = [];
+    dayMeals.push(buildFallback('7:00 – 8:00 AM','Breakfast','🌅', meal(0).cal, meal(0).protein, pSrc, cSrc, FOOD_DB.almonds, null));
+    dayMeals.push(buildFallback('12:30 – 1:30 PM','Lunch','☀️', meal(1).cal, meal(1).protein, FOOD_DB.chickenBreast, cSrc, FOOD_DB.oliveOil, vSrc));
+    dayMeals.push(buildFallback('4:00 – 5:00 PM','Evening Snack','🌿', meal(2).cal, meal(2).protein, FOOD_DB.greekYogurt, FOOD_DB.apple, FOOD_DB.almonds, null));
+    dayMeals.push(buildFallback('7:30 – 8:30 PM','Dinner','🌙', meal(3).cal, meal(3).protein, pSrc, FOOD_DB.sweetPotato, FOOD_DB.oliveOil, vSrc || FOOD_DB.broccoli));
+    return { day, dayNote: '', meals: dayMeals };
+  });
+  return { locationNote: null, weeklyPlan };
 }
 
 
@@ -706,66 +708,147 @@ function renderDietTimeline(dietData, location) {
   const container = document.getElementById('dietTimeline');
   if (!container) return;
 
-  // dietData can be { locationNote, meals[] } from AI or just { meals[] } from fallback
-  const meals       = dietData.meals || dietData;
   const locationNote = dietData.locationNote || null;
 
-  let html = '';
+  // Support both old { meals[] } single-day format and new { weeklyPlan[] } format
+  let weeklyPlan = dietData.weeklyPlan || null;
+  if (!weeklyPlan && (dietData.meals || Array.isArray(dietData))) {
+    // Legacy single-day: wrap it into Monday only
+    const meals = dietData.meals || dietData;
+    weeklyPlan = [{ day: 'Monday', dayNote: '', meals }];
+  }
+
+  if (!weeklyPlan || !weeklyPlan.length) {
+    container.innerHTML = '<p style="color:var(--text3);padding:20px;">Could not load diet plan.</p>';
+    return;
+  }
+
+  // Build day totals for summary bar
+  function dayTotals(meals) {
+    let cal = 0, p = 0, c = 0, f = 0;
+    meals.forEach(meal => meal.items.forEach(item => {
+      cal += item.cal || 0;
+      p   += item.p   || 0;
+      c   += item.c   || 0;
+      f   += item.f   || 0;
+    }));
+    return { cal: Math.round(cal), p: p.toFixed(1), c: c.toFixed(1), f: f.toFixed(1) };
+  }
+
+  function renderMealsHTML(meals) {
+    return meals.map(meal => {
+      const totalCal = meal.items.reduce((s, i) => s + (i.cal || 0), 0);
+      const totalP   = meal.items.reduce((s, i) => s + (i.p   || 0), 0).toFixed(1);
+      const totalC   = meal.items.reduce((s, i) => s + (i.c   || 0), 0).toFixed(1);
+      const totalF   = meal.items.reduce((s, i) => s + (i.f   || 0), 0).toFixed(1);
+      return `
+      <div class="meal-card">
+        <div class="meal-header">
+          <span class="meal-emoji">${meal.emoji}</span>
+          <div class="meal-title-wrap">
+            <div class="meal-time">${meal.time}</div>
+            <div class="meal-name">${meal.name}</div>
+          </div>
+          <div>
+            <div class="meal-calories">${totalCal}</div>
+            <span class="meal-cal-unit">kcal</span>
+          </div>
+        </div>
+        <div class="meal-body">
+          ${meal.mealNote ? `<div class="meal-note-tip">💡 ${meal.mealNote}</div>` : ''}
+          <div class="meal-items">
+            ${meal.items.map(item => `
+              <div class="meal-item">
+                <div>
+                  <div class="mi-name">${item.name} <span style="font-weight:400;color:var(--text3)">(${item.qty})</span></div>
+                  <div class="mi-macros">
+                    <span class="mi-p">P: ${(+item.p).toFixed(1)}g</span>
+                    <span class="mi-c">C: ${(+item.c).toFixed(1)}g</span>
+                    <span class="mi-f">F: ${(+item.f).toFixed(1)}g</span>
+                    <span style="color:var(--text3);font-weight:400">${item.cal} kcal</span>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="meal-totals">
+            <div class="mt-item"><span class="mt-label">Total:</span></div>
+            <div class="mt-item"><span class="mt-label">Protein</span> <span class="mt-value mi-p">${totalP}g</span></div>
+            <div class="mt-item"><span class="mt-label">Carbs</span>   <span class="mt-value mi-c">${totalC}g</span></div>
+            <div class="mt-item"><span class="mt-label">Fat</span>     <span class="mt-value mi-f">${totalF}g</span></div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
 
   // Location banner
+  let html = '';
   if (location && location.trim()) {
     html += `<div class="diet-location-note">📍 <span>Personalised for ${location.trim()}</span>${locationNote ? ' — ' + locationNote : ' — Foods chosen for local availability in your region.'}</div>`;
   }
 
-  html += meals.map(meal => {
-    // Support both AI flat items and original scaleFoodItem items
-    const totalCal = meal.items.reduce((s, i) => s + (i.cal || 0), 0);
-    const totalP   = meal.items.reduce((s, i) => s + (i.p || 0), 0).toFixed(1);
-    const totalC   = meal.items.reduce((s, i) => s + (i.c || 0), 0).toFixed(1);
-    const totalF   = meal.items.reduce((s, i) => s + (i.f || 0), 0).toFixed(1);
-
-    return `
-    <div class="meal-card">
-      <div class="meal-header">
-        <span class="meal-emoji">${meal.emoji}</span>
-        <div class="meal-title-wrap">
-          <div class="meal-time">${meal.time}</div>
-          <div class="meal-name">${meal.name}</div>
-        </div>
-        <div>
-          <div class="meal-calories">${totalCal}</div>
-          <span class="meal-cal-unit">kcal</span>
-        </div>
-      </div>
-      <div class="meal-body">
-        ${meal.mealNote ? `<div style="font-size:0.78rem;color:var(--text3);font-style:italic;margin-bottom:12px;padding:8px 12px;background:var(--surface2);border-radius:8px;">💡 ${meal.mealNote}</div>` : ''}
-        <div class="meal-items">
-          ${meal.items.map(item => `
-            <div class="meal-item">
-              <div>
-                <div class="mi-name">${item.name} <span style="font-weight:400;color:var(--text3)">(${item.qty})</span></div>
-                <div class="mi-macros">
-                  <span class="mi-p">P: ${(+item.p).toFixed(1)}g</span>
-                  <span class="mi-c">C: ${(+item.c).toFixed(1)}g</span>
-                  <span class="mi-f">F: ${(+item.f).toFixed(1)}g</span>
-                  <span style="color:var(--text3);font-weight:400">${item.cal} kcal</span>
-                </div>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-        <div class="meal-totals">
-          <div class="mt-item"><span class="mt-label">Total:</span></div>
-          <div class="mt-item"><span class="mt-label">Protein</span> <span class="mt-value mi-p">${totalP}g</span></div>
-          <div class="mt-item"><span class="mt-label">Carbs</span> <span class="mt-value mi-c">${totalC}g</span></div>
-          <div class="mt-item"><span class="mt-label">Fat</span> <span class="mt-value mi-f">${totalF}g</span></div>
-        </div>
-      </div>
+  // Weekly macro summary strip
+  const dayNames = weeklyPlan.map(d => d.day);
+  html += `
+  <div class="weekly-summary-strip">
+    <div class="wss-label">7-Day Overview</div>
+    <div class="wss-days">
+      ${weeklyPlan.map((d, i) => {
+        const tot = dayTotals(d.meals);
+        return `<div class="wss-day" data-day-index="${i}">
+          <span class="wss-day-name">${d.day.slice(0,3)}</span>
+          <span class="wss-day-cal">${tot.cal}</span>
+          <span class="wss-day-cal-unit">kcal</span>
+        </div>`;
+      }).join('')}
     </div>
-    `;
-  }).join('');
+  </div>`;
+
+  // Day tabs
+  html += `<div class="day-tabs" id="dayTabs">`;
+  weeklyPlan.forEach((d, i) => {
+    html += `<button class="day-tab${i === 0 ? ' active' : ''}" data-day="${i}">${d.day.slice(0,3)}</button>`;
+  });
+  html += `</div>`;
+
+  // Day panels
+  html += `<div class="day-panels" id="dayPanels">`;
+  weeklyPlan.forEach((d, i) => {
+    const tot = dayTotals(d.meals);
+    html += `
+    <div class="day-panel${i === 0 ? ' active' : ''}" data-panel="${i}">
+      <div class="day-panel-header">
+        <div class="dph-left">
+          <div class="dph-day">${d.day}</div>
+          ${d.dayNote ? `<div class="dph-note">${d.dayNote}</div>` : ''}
+        </div>
+        <div class="dph-macros">
+          <span class="dph-macro"><span class="dph-m-label">Calories</span><span class="dph-m-val">${tot.cal}</span></span>
+          <span class="dph-macro"><span class="dph-m-label mi-p">Protein</span><span class="dph-m-val mi-p">${tot.p}g</span></span>
+          <span class="dph-macro"><span class="dph-m-label mi-c">Carbs</span><span class="dph-m-val mi-c">${tot.c}g</span></span>
+          <span class="dph-macro"><span class="dph-m-label mi-f">Fat</span><span class="dph-m-val mi-f">${tot.f}g</span></span>
+        </div>
+      </div>
+      ${renderMealsHTML(d.meals)}
+    </div>`;
+  });
+  html += `</div>`;
 
   container.innerHTML = html;
+
+  // Tab switching logic
+  const tabs   = container.querySelectorAll('.day-tab');
+  const panels = container.querySelectorAll('.day-panel');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const idx = +tab.dataset.day;
+      tabs.forEach(t => t.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      panels[idx].classList.add('active');
+    });
+  });
 }
 
 function renderWorkout(workout, level, goal) {
@@ -975,7 +1058,7 @@ async function generateAndShow() {
   // Show diet loading placeholder while AI generates
   const dietContainer = document.getElementById('dietTimeline');
   if (dietContainer) {
-    dietContainer.innerHTML = `<div class="ai-loading-meal"><div class="loader-ring"></div><span>🤖 AI is crafting your personalised ${location ? location + ' ' : ''}diet plan…</span></div>`;
+    dietContainer.innerHTML = `<div class="ai-loading-meal"><div class="loader-ring"></div><span>🤖 AI is crafting your 7-day personalised ${location ? location + ' ' : ''}diet plan…</span></div>`;
   }
 
   // Generate AI diet plan (async — may take a moment)
