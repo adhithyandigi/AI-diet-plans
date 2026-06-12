@@ -1025,8 +1025,182 @@ input::placeholder { color: var(--text3); }
 .cup.filled { opacity: 1; }
 
 /* ═══════════════════════════════════════
-   RESPONSIVE
+   WEEKLY DIET PLAN — Day Tabs & Panels
 ═══════════════════════════════════════ */
+
+/* 7-day overview strip */
+.weekly-summary-strip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+.wss-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 12px;
+}
+.wss-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.wss-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 4px;
+  cursor: default;
+  transition: all var(--transition);
+}
+.wss-day:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+.wss-day-name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.wss-day-cal {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--font-body);
+}
+.wss-day-cal-unit {
+  font-size: 0.6rem;
+  color: var(--text3);
+  font-weight: 500;
+}
+
+/* Day tab row */
+.day-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  box-shadow: var(--shadow);
+}
+.day-tab {
+  flex: 1;
+  min-width: 56px;
+  padding: 9px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text2);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all var(--transition);
+  text-align: center;
+}
+.day-tab:hover {
+  background: var(--surface2);
+  color: var(--text);
+  border-color: var(--border);
+}
+.day-tab.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent-dark);
+  box-shadow: 0 2px 8px rgba(34,197,94,0.35);
+}
+
+/* Day panels */
+.day-panels { position: relative; }
+.day-panel { display: none; }
+.day-panel.active { display: block; animation: fadeSlideIn 0.3s ease; }
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Day panel header */
+.day-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.dph-left { display: flex; flex-direction: column; gap: 4px; }
+.dph-day {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--text);
+}
+.dph-note {
+  font-size: 0.78rem;
+  color: var(--text3);
+  font-style: italic;
+}
+.dph-macros {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.dph-macro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 8px 12px;
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  min-width: 64px;
+}
+.dph-m-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text3);
+}
+.dph-m-val {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Meal note tip (refactored from inline style) */
+.meal-note-tip {
+  font-size: 0.78rem;
+  color: var(--text3);
+  font-style: italic;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--surface2);
+  border-radius: 8px;
+}
+
+
 @media (max-width: 900px) {
   .landing-layout { grid-template-columns: 1fr; }
   .landing-hero {
@@ -1043,6 +1217,12 @@ input::placeholder { color: var(--text3); }
   .bmi-card, .stats-card, .macro-card, .ai-analysis-card { grid-column: 1; }
   .header-actions { gap: 4px; }
   .action-btn { padding: 7px 10px; font-size: 0.75rem; }
+
+  .wss-days { grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .wss-day { padding: 8px 2px; }
+  .wss-day-cal { font-size: 0.85rem; }
+  .dph-macros { gap: 6px; }
+  .dph-macro { padding: 6px 8px; min-width: 54px; }
 }
 
 @media (max-width: 600px) {
@@ -1051,6 +1231,16 @@ input::placeholder { color: var(--text3); }
   .goal-cards { grid-template-columns: 1fr; }
   .results-header { padding: 12px 16px; }
   .header-logo { font-size: 1.1rem; }
+
+  .wss-days { grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .wss-day-name { font-size: 0.6rem; }
+  .wss-day-cal { font-size: 0.78rem; }
+  .wss-day-cal-unit { display: none; }
+  .day-tabs { gap: 4px; padding: 6px; }
+  .day-tab { padding: 8px 4px; font-size: 0.75rem; }
+  .day-panel-header { flex-direction: column; align-items: flex-start; }
+  .dph-macros { width: 100%; justify-content: space-between; }
+  .dph-macro { flex: 1; min-width: 0; }
 }
 
 /* PDF styles */
@@ -1058,4 +1248,7 @@ input::placeholder { color: var(--text3); }
   .results-header, .results-nav, .theme-toggle { display: none; }
   .results-layout { grid-template-columns: 1fr; }
   .result-section { break-inside: avoid; margin-bottom: 32px; }
+  .day-tabs { display: none; }
+  .day-panel { display: block !important; margin-bottom: 24px; break-inside: avoid; }
+  .day-panel-header { break-inside: avoid; }
 }
