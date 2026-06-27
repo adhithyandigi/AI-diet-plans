@@ -183,92 +183,588 @@ function getWaterIntake(weight, activity) {
 }
 
 // ═══════════════════════════════════════
-// DIET PLAN GENERATOR
+// WORLD REGIONAL FOOD DATABASE
+// Used to inject accurate local foods into the AI prompt.
+// Each region has: proteins, carbs, fats, veggies, fruits, extras
+// All values per 100g (USDA / standard nutritional references)
 // ═══════════════════════════════════════
 
-// ALL values are per 100g — consistent so math always works
-const FOOD_DB = {
-  // Proteins
-  chickenBreast: { name: 'Chicken Breast',        cal: 165, p: 31.0, c:  0.0, f:  3.6 },
-  eggs:          { name: 'Whole Eggs',             cal: 155, p: 13.0, c:  1.1, f: 11.0 },
-  eggWhites:     { name: 'Egg Whites',             cal:  52, p: 11.0, c:  0.7, f:  0.2 },
-  greekYogurt:   { name: 'Greek Yogurt (0%)',      cal:  59, p: 10.2, c:  3.6, f:  0.4 },
-  salmonFillet:  { name: 'Salmon Fillet',          cal: 208, p: 28.0, c:  0.0, f: 10.0 },
-  tunaCanned:    { name: 'Tuna (canned)',           cal: 116, p: 26.0, c:  0.0, f:  1.0 },
-  cottage:       { name: 'Cottage Cheese',         cal:  98, p: 11.0, c:  3.4, f:  4.3 },
-  lentils:       { name: 'Cooked Lentils',         cal: 116, p:  9.0, c: 20.0, f:  0.4 },
-  // Carbs
-  oats:          { name: 'Rolled Oats (dry)',       cal: 389, p: 17.0, c: 66.0, f:  7.0 },
-  brownRice:     { name: 'Cooked Brown Rice',      cal: 112, p:  2.6, c: 23.5, f:  0.9 },
-  sweetPotato:   { name: 'Sweet Potato (cooked)',  cal:  86, p:  1.6, c: 20.0, f:  0.1 },
-  wholeWheatBread:{ name: 'Whole Wheat Bread',     cal: 247, p: 13.0, c: 41.0, f:  3.4 },
-  banana:        { name: 'Banana',                 cal:  89, p:  1.1, c: 23.0, f:  0.3 },
-  apple:         { name: 'Apple',                  cal:  52, p:  0.3, c: 14.0, f:  0.2 },
-  quinoa:        { name: 'Cooked Quinoa',          cal: 120, p:  4.4, c: 21.3, f:  1.9 },
-  // Fats
-  almonds:       { name: 'Almonds',                cal: 579, p: 21.0, c: 22.0, f: 50.0 },
-  avocado:       { name: 'Avocado',                cal: 160, p:  2.0, c:  9.0, f: 15.0 },
-  oliveOil:      { name: 'Olive Oil',              cal: 884, p:  0.0, c:  0.0, f:100.0 },
-  peanutButter:  { name: 'Peanut Butter',          cal: 588, p: 25.0, c: 20.0, f: 50.0 },
-  // Veggies (used as fixed 150g add-ons)
-  spinach:       { name: 'Spinach',                cal:  23, p:  2.9, c:  3.6, f:  0.4 },
-  broccoli:      { name: 'Broccoli',               cal:  55, p:  3.7, c: 11.0, f:  0.6 },
-  mixedVeg:      { name: 'Mixed Vegetables',       cal:  65, p:  2.0, c: 13.0, f:  0.5 },
-  // Supplement (per 100g — 1 scoop ~30g = ~120 cal, 25g protein)
-  wheyProtein:   { name: 'Whey Protein Shake',     cal: 400, p: 83.0, c: 10.0, f:  5.0 },
+const REGIONAL_FOOD_DB = {
+
+  // ── Gulf / Middle East (UAE, Saudi, Kuwait, Qatar, Bahrain, Oman, Jordan, Lebanon, Egypt, Iraq, Yemen) ──
+  gulf_middleeast: {
+    keywords: ['dubai','uae','abu dhabi','sharjah','saudi','riyadh','jeddah','kuwait','qatar','doha','bahrain','oman','muscat','jordan','amman','lebanon','beirut','egypt','cairo','iraq','baghdad','yemen','sanaa','mecca','medina','dammam'],
+    label: 'Gulf / Middle East',
+    proteins: [
+      { name: 'Grilled Hammour (Grouper) Fillet', cal: 118, p: 24.8, c: 0.0, f: 1.8 },
+      { name: 'Chicken Shawarma (no bread)', cal: 185, p: 27.0, c: 4.0, f: 7.5 },
+      { name: 'Lamb Kofta (grilled)', cal: 220, p: 22.0, c: 3.5, f: 13.5 },
+      { name: 'Grilled Chicken Breast (Shish Tawook)', cal: 165, p: 31.0, c: 2.0, f: 3.6 },
+      { name: 'Boiled Eggs', cal: 155, p: 13.0, c: 1.1, f: 11.0 },
+      { name: 'Labneh (strained yogurt)', cal: 99,  p: 7.0,  c: 4.5, f: 6.0 },
+      { name: 'Canned Tuna in Water', cal: 116, p: 26.0, c: 0.0, f: 1.0 },
+      { name: 'Grilled Seabass Fillet', cal: 124, p: 23.6, c: 0.0, f: 3.1 },
+      { name: 'Hummus (chickpea dip)', cal: 177, p: 8.0,  c: 20.0, f: 8.6 },
+      { name: 'Foul Medames (cooked fava beans)', cal: 110, p: 7.6, c: 18.0, f: 0.5 },
+      { name: 'Grilled Lamb Chop (lean)', cal: 215, p: 25.0, c: 0.0, f: 12.0 },
+      { name: 'Msabbah (chickpea breakfast)', cal: 164, p: 9.0, c: 27.0, f: 3.0 },
+    ],
+    carbs: [
+      { name: 'Cooked Basmati Rice', cal: 130, p: 2.7, c: 28.0, f: 0.3 },
+      { name: 'Whole Wheat Khubz (Arabic bread)', cal: 245, p: 9.0, c: 47.0, f: 3.0 },
+      { name: 'Cooked Bulgur Wheat', cal: 83,  p: 3.1, c: 18.6, f: 0.2 },
+      { name: 'Cooked Brown Lentils (Adas)', cal: 116, p: 9.0, c: 20.0, f: 0.4 },
+      { name: 'Rolled Oats (Quaker, widely sold)', cal: 389, p: 17.0, c: 66.0, f: 7.0 },
+      { name: 'Cooked Freekeh (roasted wheat)', cal: 112, p: 4.0, c: 22.0, f: 0.7 },
+      { name: 'Sweet Potato (boiled)', cal: 86,  p: 1.6, c: 20.0, f: 0.1 },
+      { name: 'Dates (Medjool)', cal: 277, p: 1.8, c: 75.0, f: 0.2 },
+      { name: 'Cooked Chickpeas', cal: 164, p: 8.9, c: 27.0, f: 2.6 },
+    ],
+    fats: [
+      { name: 'Extra Virgin Olive Oil', cal: 884, p: 0.0, c: 0.0, f: 100.0 },
+      { name: 'Tahini (sesame paste)', cal: 595, p: 17.0, c: 21.0, f: 54.0 },
+      { name: 'Raw Almonds', cal: 579, p: 21.0, c: 22.0, f: 50.0 },
+      { name: 'Avocado', cal: 160, p: 2.0, c: 9.0, f: 15.0 },
+      { name: 'Walnuts', cal: 654, p: 15.0, c: 14.0, f: 65.0 },
+    ],
+    veggies: [
+      { name: 'Cucumber (sliced)', cal: 15, p: 0.7, c: 3.6, f: 0.1 },
+      { name: 'Tomatoes', cal: 18, p: 0.9, c: 3.9, f: 0.2 },
+      { name: 'Rocket (Arugula)', cal: 25, p: 2.6, c: 3.7, f: 0.7 },
+      { name: 'Parsley (fresh)', cal: 36, p: 3.0, c: 6.3, f: 0.8 },
+      { name: 'Grilled Zucchini', cal: 17, p: 1.2, c: 3.1, f: 0.3 },
+      { name: 'Steamed Broccoli', cal: 55, p: 3.7, c: 11.0, f: 0.6 },
+      { name: 'Roasted Bell Peppers', cal: 31, p: 1.0, c: 6.0, f: 0.3 },
+      { name: 'Baby Spinach', cal: 23, p: 2.9, c: 3.6, f: 0.4 },
+    ],
+    fruits: [
+      { name: 'Dates (Medjool, 2 pcs ~48g)', cal: 133, p: 0.9, c: 36.0, f: 0.1 },
+      { name: 'Banana', cal: 89, p: 1.1, c: 23.0, f: 0.3 },
+      { name: 'Watermelon', cal: 30, p: 0.6, c: 7.6, f: 0.2 },
+      { name: 'Mango', cal: 60, p: 0.8, c: 15.0, f: 0.4 },
+      { name: 'Apple', cal: 52, p: 0.3, c: 14.0, f: 0.2 },
+      { name: 'Pomegranate seeds', cal: 83, p: 1.7, c: 18.7, f: 1.2 },
+    ],
+    mealCulture: 'Arabic breakfast (Foul, Labneh, eggs, Khubz), Shawarma-style protein with rice or bulgur for lunch, Grilled fish/lamb with vegetable sides for dinner. Dates are a culturally significant snack. Tahini and olive oil used widely.',
+  },
+
+  // ── South Asia (India, Pakistan, Bangladesh, Sri Lanka, Nepal) ──
+  south_asia: {
+    keywords: ['india','mumbai','delhi','bangalore','hyderabad','chennai','kolkata','pakistan','karachi','lahore','islamabad','bangladesh','dhaka','sri lanka','colombo','nepal','kathmandu'],
+    label: 'South Asia',
+    proteins: [
+      { name: 'Chicken Tikka (grilled, no cream)', cal: 163, p: 28.0, c: 2.5, f: 4.5 },
+      { name: 'Dal (cooked yellow lentils)', cal: 116, p: 9.0, c: 20.0, f: 0.5 },
+      { name: 'Paneer (Indian cottage cheese)', cal: 265, p: 18.3, c: 3.4, f: 20.8 },
+      { name: 'Boiled Eggs', cal: 155, p: 13.0, c: 1.1, f: 11.0 },
+      { name: 'Rohu Fish (steamed/grilled)', cal: 97,  p: 16.6, c: 0.0, f: 3.3 },
+      { name: 'Grilled Chicken Breast', cal: 165, p: 31.0, c: 0.0, f: 3.6 },
+      { name: 'Rajma (cooked red kidney beans)', cal: 127, p: 8.7, c: 22.8, f: 0.5 },
+      { name: 'Chole (cooked chickpeas)', cal: 164, p: 8.9, c: 27.0, f: 2.6 },
+      { name: 'Low-fat Dahi (curd/yogurt)', cal: 63,  p: 5.0, c: 4.7, f: 1.5 },
+      { name: 'Tofu (firm, grilled)', cal: 76,  p: 8.0, c: 1.9, f: 4.3 },
+      { name: 'Moong Dal Sprouts', cal: 30,  p: 3.0, c: 5.9, f: 0.2 },
+    ],
+    carbs: [
+      { name: 'Cooked Basmati Rice', cal: 130, p: 2.7, c: 28.0, f: 0.3 },
+      { name: 'Whole Wheat Roti (1 roti ~40g)', cal: 104, p: 3.5, c: 20.0, f: 1.2 },
+      { name: 'Cooked Brown Rice', cal: 112, p: 2.6, c: 23.5, f: 0.9 },
+      { name: 'Rolled Oats (Quaker)', cal: 389, p: 17.0, c: 66.0, f: 7.0 },
+      { name: 'Cooked Quinoa', cal: 120, p: 4.4, c: 21.3, f: 1.9 },
+      { name: 'Sweet Potato (boiled)', cal: 86,  p: 1.6, c: 20.0, f: 0.1 },
+      { name: 'Poha (cooked flattened rice)', cal: 110, p: 2.4, c: 23.0, f: 0.5 },
+      { name: 'Upma (semolina, no excess oil)', cal: 160, p: 3.5, c: 28.0, f: 3.5 },
+      { name: 'Idli (steamed rice cake, 1 pc ~30g)', cal: 39, p: 1.5, c: 8.0, f: 0.2 },
+    ],
+    fats: [
+      { name: 'Ghee (clarified butter)', cal: 900, p: 0.0, c: 0.0, f: 100.0 },
+      { name: 'Coconut oil', cal: 862, p: 0.0, c: 0.0, f: 100.0 },
+      { name: 'Peanut Butter', cal: 588, p: 25.0, c: 20.0, f: 50.0 },
+      { name: 'Almonds (badam)', cal: 579, p: 21.0, c: 22.0, f: 50.0 },
+      { name: 'Walnuts (akhrot)', cal: 654, p: 15.0, c: 14.0, f: 65.0 },
+      { name: 'Mustard oil (1 tsp)', cal: 45,  p: 0.0, c: 0.0, f: 5.0 },
+    ],
+    veggies: [
+      { name: 'Spinach (palak, cooked)', cal: 23, p: 2.9, c: 3.6, f: 0.4 },
+      { name: 'Bottle Gourd (lauki, cooked)', cal: 15, p: 0.6, c: 3.4, f: 0.1 },
+      { name: 'Cauliflower (gobi, steamed)', cal: 25, p: 1.9, c: 5.0, f: 0.3 },
+      { name: 'Bitter Gourd (karela)', cal: 17, p: 1.0, c: 3.7, f: 0.2 },
+      { name: 'Green Beans (French beans)', cal: 31, p: 1.8, c: 7.0, f: 0.1 },
+      { name: 'Brinjal/Eggplant (baingan, grilled)', cal: 25, p: 1.0, c: 5.9, f: 0.2 },
+      { name: 'Ridge Gourd (turai)', cal: 14, p: 0.7, c: 3.3, f: 0.1 },
+      { name: 'Tomato', cal: 18, p: 0.9, c: 3.9, f: 0.2 },
+    ],
+    fruits: [
+      { name: 'Banana', cal: 89, p: 1.1, c: 23.0, f: 0.3 },
+      { name: 'Mango (Alphonso)', cal: 60,  p: 0.8, c: 15.0, f: 0.4 },
+      { name: 'Papaya (sliced)', cal: 43,  p: 0.5, c: 11.0, f: 0.3 },
+      { name: 'Guava', cal: 68,  p: 2.6, c: 14.0, f: 1.0 },
+      { name: 'Apple (Shimla)', cal: 52, p: 0.3, c: 14.0, f: 0.2 },
+      { name: 'Pomegranate', cal: 83, p: 1.7, c: 18.7, f: 1.2 },
+    ],
+    mealCulture: 'Dal-rice or roti as staple base. Chicken tikka, fish curry or paneer as protein. Dahi (curd) as probiotic. Heavy use of spices (turmeric, cumin, coriander). Avoid excessive ghee/oil; use minimal cooking fat for fitness plans.',
+  },
+
+  // ── West Africa (Nigeria, Ghana, Cameroon, Senegal, Ivory Coast, Mali) ──
+  west_africa: {
+    keywords: ['nigeria','lagos','abuja','ghana','accra','cameroon','douala','yaoundé','senegal','dakar','ivory coast','abidjan','mali','bamako','benin','togo'],
+    label: 'West Africa',
+    proteins: [
+      { name: 'Grilled Tilapia', cal: 96,  p: 20.1, c: 0.0, f: 1.7 },
+      { name: 'Boiled Chicken (without skin)', cal: 165, p: 31.0, c: 0.0, f: 3.6 },
+      { name: 'Grilled Catfish', cal: 95,  p: 16.4, c: 0.0, f: 2.8 },
+      { name: 'Boiled Eggs', cal: 155, p: 13.0, c: 1.1, f: 11.0 },
+      { name: 'Smoked Mackerel (Titus fish)', cal: 205, p: 18.5, c: 0.0, f: 13.9 },
+      { name: 'Grilled Beef (suya, lean)', cal: 185, p: 26.0, c: 3.5, f: 7.5 },
+      { name: 'Black-eyed Peas (cooked)', cal: 116, p: 8.0, c: 21.0, f: 0.5 },
+      { name: 'Groundnut (peanut, boiled)', cal: 567, p: 25.8, c: 16.1, f: 49.2 },
+    ],
+    carbs: [
+      { name: 'Boiled Yam', cal: 118, p: 1.5, c: 27.9, f: 0.2 },
+      { name: 'Cooked White Rice', cal: 130, p: 2.7, c: 28.2, f: 0.3 },
+      { name: 'Eba / Garri (cooked)', cal: 357, p: 1.5, c: 84.0, f: 0.5 },
+      { name: 'Cooked Brown Rice', cal: 112, p: 2.6, c: 23.5, f: 0.9 },
+      { name: 'Boiled Plantain (unripe)', cal: 122, p: 1.3, c: 31.0, f: 0.4 },
+      { name: 'Sweet Potato (boiled)', cal: 86,  p: 1.6, c: 20.0, f: 0.1 },
+      { name: 'Rolled Oats', cal: 389, p: 17.0, c: 66.0, f: 7.0 },
+      { name: 'Cooked Beans (brown cowpeas)', cal: 127, p: 8.7, c: 23.0, f: 0.5 },
+    ],
+    fats: [
+      { name: 'Palm oil (red, 1 tsp)', cal: 45, p: 0.0, c: 0.0, f: 5.0 },
+      { name: 'Groundnut oil', cal: 884, p: 0.0, c: 0.0, f: 100.0 },
+      { name: 'Peanut butter (groundnut paste)', cal: 588, p: 25.0, c: 20.0, f: 50.0 },
+      { name: 'Coconut milk (light)', cal: 97,  p: 1.0, c: 2.8, f: 9.6 },
+      { name: 'Walnuts', cal: 654, p: 15.0, c: 14.0, f: 65.0 },
+    ],
+    veggies: [
+      { name: 'Ugwu (fluted pumpkin leaves)', cal: 25, p: 3.0, c: 4.0, f: 0.4 },
+      { name: 'Okra (boiled)', cal: 33, p: 2.0, c: 7.5, f: 0.2 },
+      { name: 'Bitter Leaf (cooked)', cal: 22, p: 2.5, c: 3.5, f: 0.3 },
+      { name: 'Garden Egg (African eggplant)', cal: 25, p: 1.0, c: 5.9, f: 0.2 },
+      { name: 'Tomatoes (stewed)', cal: 18, p: 0.9, c: 3.9, f: 0.2 },
+      { name: 'Cabbage (cooked)', cal: 25, p: 1.3, c: 5.8, f: 0.1 },
+      { name: 'Spinach (cooked)', cal: 23, p: 2.9, c: 3.6, f: 0.4 },
+    ],
+    fruits: [
+      { name: 'Plantain (ripe, boiled)', cal: 122, p: 1.3, c: 31.0, f: 0.4 },
+      { name: 'Pawpaw (papaya)', cal: 43, p: 0.5, c: 11.0, f: 0.3 },
+      { name: 'Mango', cal: 60, p: 0.8, c: 15.0, f: 0.4 },
+      { name: 'Pineapple', cal: 50, p: 0.5, c: 13.1, f: 0.1 },
+      { name: 'Watermelon', cal: 30, p: 0.6, c: 7.6, f: 0.2 },
+      { name: 'Banana', cal: 89, p: 1.1, c: 23.0, f: 0.3 },
+    ],
+    mealCulture: 'Protein from grilled fish (tilapia, catfish, mackerel), chicken, eggs. Carbs from yam, rice, plantain, garri. Soups/stews (egusi, okra, vegetable) cooked with minimal palm oil. Beans and groundnuts provide plant protein.',
+  },
+
+  // ── East Africa (Kenya, Ethiopia, Tanzania, Uganda) ──
+  east_africa: {
+    keywords: ['kenya','nairobi','mombasa','ethiopia','addis ababa','tanzania','dar es salaam','arusha','uganda','kampala'],
+    label: 'East Africa',
+    proteins: [
+      { name: 'Nyama Choma (grilled beef, lean)', cal: 185, p: 26.0, c: 0.0, f: 8.0 },
+      { name: 'Grilled Tilapia', cal: 96, p: 20.1, c: 0.0, f: 1.7 },
+      { name: 'Boiled Eggs', cal: 155, p: 13.0, c: 1.1, f: 11.0 },
+      { name: 'Grilled Chicken', cal: 165, p: 31.0, c: 0.0, f: 3.6 },
+      { name: 'Lentils (Misir / cooked)', cal: 116, p: 9.0, c: 20.0, f: 0.4 },
+      { name: 'Mung Beans (cooked)', cal: 105, p: 7.0, c: 19.0, f: 0.4 },
+    ],
+    carbs: [
+      { name: 'Ugali (maize meal porridge)', cal: 360, p: 8.0, c: 77.0, f: 1.5 },
+      { name: 'Cooked Brown Rice', cal: 112, p: 2.6, c: 23.5, f: 0.9 },
+      { name: 'Injera (Ethiopian teff flatbread, 1 piece)', cal: 124, p: 3.5, c: 24.0, f: 0.8 },
+      { name: 'Sweet Potato (boiled)', cal: 86, p: 1.6, c: 20.0, f: 0.1 },
+      { name: 'Matoke (boiled green banana)', cal: 89, p: 1.0, c: 22.8, f: 0.3 },
+      { name: 'Rolled Oats', cal: 389, p: 17.0, c: 66.0, f: 7.0 },
+    ],
+    fats: [
+      { name: 'Avocado', cal: 160, p: 2.0, c: 9.0, f: 15.0 },
+      { name: 'Groundnut oil', cal: 884, p: 0.0, c: 0.0, f: 100.0 },
+      { name: 'Almonds', cal: 579, p: 21.0, c: 22.0, f: 50.0 },
+    ],
+    veggies: [
+      { name: 'Sukuma Wiki (collard greens, cooked)', cal: 32, p: 2.5, c: 6.5, f: 0.5 },
+      { name: 'Cabbage (cooked)', cal: 25, p: 1.3, c: 5.8, f: 0.1 },
+      { name: 'Tomatoes', cal: 18, p: 0.9, c: 3.9, f: 0.2 },
+      { name: 'Spinach (cooked)', cal: 23, p: 2.9, c: 3.6, f: 0.4 },
+      { name: 'Kale (cooked)', cal: 28, p: 1.9, c: 5.6, f: 0.4 },
+    ],
+    fruits: [
+      { name: 'Mango', cal: 60, p: 0.8, c: 15.0, f: 0.4 },
+      { name: 'Banana', cal: 89, p: 1.1, c: 23.0, f: 0.3 },
+      { name: 'Passion fruit', cal: 97, p: 2.2, c: 23.4, f: 0.7 },
+      { name: 'Pineapple', cal: 50, p: 0.5, c: 13.1, f: 0.1 },
+      { name: 'Avocado (half)', cal: 160, p: 2.0, c: 9.0, f: 15.0 },
+    ],
+    mealCulture: 'Ugali or injera as staple carb base. Protein from grilled/boiled fish, chicken, eggs and legumes. Sukuma Wiki (collard greens) is a daily vegetable staple. Avocado abundant. Minimal processed food culture.',
+  },
+
+  // ── Southeast Asia (Philippines, Indonesia, Malaysia, Thailand, Vietnam) ──
+  southeast_asia: {
+    keywords: ['philippines','manila','cebu','indonesia','jakarta','bali','surabaya','malaysia','kuala lumpur','penang','thailand','bangkok','chiang mai','vietnam','ho chi minh','hanoi','singapore','myanmar','yangon','cambodia','phnom penh'],
+    label: 'Southeast Asia',
+    proteins: [
+      { name: 'Steamed Fish Fillet (local)', cal: 105, p: 22.0, c: 0.0, f: 1.8 },
+      { name: 'Grilled Chicken (Ayam Bakar)', cal: 165, p: 31.0, c: 2.0, f: 3.6 },
+      { name: 'Boiled Eggs (itlog/telur)', cal: 155, p: 13.0, c: 1.1, f: 11.0 },
+      { name: 'Tofu (firm, steamed)', cal: 76, p: 8.0, c: 1.9, f: 4.3 },
+      { name: 'Tempeh (fermented soy)', cal: 195, p: 20.7, c: 7.6, f: 10.8 },
+      { name: 'Tinned Tuna in water', cal: 116, p: 26.0, c: 0.0, f: 1.0 },
+      { name: 'Prawn/Shrimp (boiled)', cal: 99, p: 21.0, c: 0.0, f: 1.1 },
+      { name: 'Pork tenderloin (grilled, lean)', cal: 143, p: 26.2, c: 0.0, f: 3.5 },
+      { name: 'Black-eyed Peas', cal: 116, p: 8.0, c: 21.0, f: 0.5 },
+    ],
+    carbs: [
+      { name: 'Cooked Jasmine Rice', cal: 130, p: 2.7, c: 28.0, f: 0.3 },
+      { name: 'Cooked Brown Rice', cal: 112, p: 2.6, c: 23.5, f: 0.9 },
+      { name: 'Rice noodles (cooked)', cal: 109, p: 1.8, c: 25.2, f: 0.2 },
+      { name: 'Sweet potato (boiled)', cal: 86, p: 1.6, c: 20.0, f: 0.1 },
+      { name: 'Rolled Oats', cal: 389, p: 17.0, c: 66.0, f: 7.0 },
+      { name: 'Banana (saba variety)', cal: 89, p: 1.1, c: 23.0, f: 0.3 },
+      { name: 'Cassava (boiled)', cal: 160, p: 1.4, c: 38.1, f: 0.3 },
+    ],
+    fats: [
+      { name: 'Coconut oil', cal: 862, p: 0.0, c: 0.0, f: 100.0 },
+      { name: 'Peanuts (roasted, unsalted)', cal: 567, p: 25.8, c: 16.1, f: 49.2 },
+      { name: 'Coconut milk (light)', cal: 97, p: 1.0, c: 2.8, f: 9.6 },
+      { name: 'Sesame oil (1 tsp)', cal: 40, p: 0.0, c: 0.0, f: 4.5 },
+      { name: 'Avocado', cal: 160, p: 2.0, c: 9.0, f: 15.0 },
+    ],
+    veggies: [
+      { name: 'Kangkong (water spinach, stir-fried)', cal: 19, p: 2.6, c: 3.1, f: 0.2 },
+      { name: 'Bok Choy (stir-fried)', cal: 13, p: 1.5, c: 2.2, f: 0.2 },
+      { name: 'Bean Sprouts (blanched)', cal: 30, p: 3.0, c: 5.9, f: 0.2 },
+      { name: 'Long Beans (cooked)', cal: 47, p: 2.8, c: 10.5, f: 0.4 },
+      { name: 'Bitter Melon (stir-fried)', cal: 17, p: 1.0, c: 3.7, f: 0.2 },
+      { name: 'Cabbage (stir-fried)', cal: 25, p: 1.3, c: 5.8, f: 0.1 },
+      { name: 'Eggplant (grilled)', cal: 25, p: 1.0, c: 5.9, f: 0.2 },
+    ],
+    fruits: [
+      { name: 'Mango (green/ripe)', cal: 60, p: 0.8, c: 15.0, f: 0.4 },
+      { name: 'Papaya', cal: 43, p: 0.5, c: 11.0, f: 0.3 },
+      { name: 'Pineapple', cal: 50, p: 0.5, c: 13.1, f: 0.1 },
+      { name: 'Dragon fruit', cal: 60, p: 1.2, c: 13.0, f: 0.6 },
+      { name: 'Watermelon', cal: 30, p: 0.6, c: 7.6, f: 0.2 },
+      { name: 'Banana', cal: 89, p: 1.1, c: 23.0, f: 0.3 },
+    ],
+    mealCulture: 'Rice as primary carb. Protein from grilled fish, chicken, tofu, tempeh, eggs. Stir-fried or steamed vegetables. Coconut milk in cooking. Minimal dairy. Noodle soups common for breakfast/lunch.',
+  },
+
+  // ── East Asia (China, Japan, South Korea) ──
+  east_asia: {
+    keywords: ['china','beijing','shanghai','guangzhou','shenzhen','chengdu','japan','tokyo','osaka','kyoto','south korea','seoul','busan','taiwan','taipei','hong kong'],
+    label: 'East Asia',
+    proteins: [
+      { name: 'Steamed Tofu (silken/firm)', cal: 76, p: 8.0, c: 1.9, f: 4.3 },
+      { name: 'Grilled Salmon', cal: 208, p: 28.0, c: 0.0, f: 10.0 },
+      { name: 'Boiled Eggs', cal: 155, p: 13.0, c: 1.1, f: 11.0 },
+      { name: 'Edamame (steamed soybeans)', cal: 122, p: 11.9, c: 8.9, f: 5.2 },
+      { name: 'Grilled Chicken Breast', cal: 165, p: 31.0, c: 0.0, f: 3.6 },
+      { name: 'Grilled Mackerel (saba)', cal: 205, p: 18.5, c: 0.0, f: 13.9 },
+      { name: 'Tuna Sashimi', cal: 108, p: 23.0, c: 0.0, f: 0.9 },
+      { name: 'Pork Tenderloin (lean, grilled)', cal: 143, p: 26.2, c: 0.0, f: 3.5 },
+      { name: 'Prawn (steamed)', cal: 99, p: 21.0, c: 0.0, f: 1.1 },
+    ],
+    carbs: [
+      { name: 'Cooked Japanese Rice (white)', cal: 130, p: 2.7, c: 28.0, f: 0.3 },
+      { name: 'Soba Noodles (cooked)', cal: 99, p: 5.1, c: 21.4, f: 0.1 },
+      { name: 'Cooked Brown Rice', cal: 112, p: 2.6, c: 23.5, f: 0.9 },
+      { name: 'Rolled Oats', cal: 389, p: 17.0, c: 66.0, f: 7.0 },
+      { name: 'Sweet Potato (Japanese, baked)', cal: 86, p: 1.6, c: 20.0, f: 0.1 },
+      { name: 'Congee / Rice porridge', cal: 65, p: 1.5, c: 14.0, f: 0.2 },
+      { name: 'Udon noodles (cooked)', cal: 117, p: 3.0, c: 24.0, f: 0.6 },
+    ],
+    fats: [
+      { name: 'Sesame oil (1 tsp)', cal: 40, p: 0.0, c: 0.0, f: 4.5 },
+      { name: 'Sesame seeds', cal: 573, p: 17.7, c: 23.5, f: 49.7 },
+      { name: 'Walnuts', cal: 654, p: 15.0, c: 14.0, f: 65.0 },
+      { name: 'Almonds', cal: 579, p: 21.0, c: 22.0, f: 50.0 },
+      { name: 'Peanut butter', cal: 588, p: 25.0, c: 20.0, f: 50.0 },
+    ],
+    veggies: [
+      { name: 'Broccoli (steamed)', cal: 55, p: 3.7, c: 11.0, f: 0.6 },
+      { name: 'Bok Choy (stir-fried)', cal: 13, p: 1.5, c: 2.2, f: 0.2 },
+      { name: 'Napa Cabbage (cooked)', cal: 17, p: 1.2, c: 3.2, f: 0.2 },
+      { name: 'Shiitake Mushrooms (sautéed)', cal: 34, p: 2.2, c: 6.8, f: 0.5 },
+      { name: 'Spinach (blanched)', cal: 23, p: 2.9, c: 3.6, f: 0.4 },
+      { name: 'Bean Sprouts (blanched)', cal: 30, p: 3.0, c: 5.9, f: 0.2 },
+      { name: 'Seaweed / Wakame (rehydrated)', cal: 45, p: 3.0, c: 9.1, f: 0.6 },
+    ],
+    fruits: [
+      { name: 'Mandarin orange', cal: 53, p: 0.8, c: 13.3, f: 0.3 },
+      { name: 'Apple', cal: 52, p: 0.3, c: 14.0, f: 0.2 },
+      { name: 'Kiwi', cal: 61, p: 1.1, c: 14.7, f: 0.5 },
+      { name: 'Blueberries', cal: 57, p: 0.7, c: 14.5, f: 0.3 },
+      { name: 'Watermelon', cal: 30, p: 0.6, c: 7.6, f: 0.2 },
+    ],
+    mealCulture: 'Rice or noodles as carb base. Grilled fish, tofu, eggs as protein. Steamed or stir-fried vegetables. Miso soup common in Japanese diets. Soy-based fermented foods (tofu, miso, edamame). Minimal dairy.',
+  },
+
+  // ── Western Europe (UK, Germany, France, Italy, Spain, Netherlands) ──
+  western_europe: {
+    keywords: ['uk','london','manchester','birmingham','germany','berlin','munich','france','paris','italy','rome','milan','spain','madrid','barcelona','netherlands','amsterdam','belgium','brussels','sweden','stockholm','norway','oslo','denmark','copenhagen','switzerland','zurich','austria','vienna','portugal','lisbon'],
+    label: 'Western Europe',
+    proteins: [
+      { name: 'Grilled Chicken Breast', cal: 165, p: 31.0, c: 0.0, f: 3.6 },
+      { name: 'Salmon Fillet (baked)', cal: 208, p: 28.0, c: 0.0, f: 10.0 },
+      { name: 'Tuna (canned in water)', cal: 116, p: 26.0, c: 0.0, f: 1.0 },
+      { name: 'Greek Yogurt (0% fat)', cal: 59, p: 10.2, c: 3.6, f: 0.4 },
+      { name: 'Whole Eggs (boiled)', cal: 155, p: 13.0, c: 1.1, f: 11.0 },
+      { name: 'Lean Beef Mince (cooked)', cal: 215, p: 26.0, c: 0.0, f: 11.5 },
+      { name: 'Cottage Cheese (low fat)', cal: 98, p: 11.0, c: 3.4, f: 4.3 },
+      { name: 'Smoked Salmon', cal: 117, p: 18.3, c: 0.0, f: 4.3 },
+      { name: 'Turkey Breast (sliced, cooked)', cal: 135, p: 30.0, c: 0.0, f: 1.0 },
+      { name: 'Cooked Lentils', cal: 116, p: 9.0, c: 20.0, f: 0.4 },
+    ],
+    carbs: [
+      { name: 'Rolled Oats', cal: 389, p: 17.0, c: 66.0, f: 7.0 },
+      { name: 'Whole Grain Bread (1 slice ~40g)', cal: 97, p: 4.0, c: 18.3, f: 1.3 },
+      { name: 'Cooked Brown Rice', cal: 112, p: 2.6, c: 23.5, f: 0.9 },
+      { name: 'Cooked Quinoa', cal: 120, p: 4.4, c: 21.3, f: 1.9 },
+      { name: 'Sweet Potato (baked)', cal: 86, p: 1.6, c: 20.0, f: 0.1 },
+      { name: 'Pasta (whole wheat, cooked)', cal: 124, p: 5.3, c: 26.5, f: 1.0 },
+      { name: 'New Potatoes (boiled)', cal: 75, p: 1.8, c: 17.4, f: 0.1 },
+    ],
+    fats: [
+      { name: 'Extra Virgin Olive Oil', cal: 884, p: 0.0, c: 0.0, f: 100.0 },
+      { name: 'Almonds', cal: 579, p: 21.0, c: 22.0, f: 50.0 },
+      { name: 'Avocado', cal: 160, p: 2.0, c: 9.0, f: 15.0 },
+      { name: 'Walnuts', cal: 654, p: 15.0, c: 14.0, f: 65.0 },
+      { name: 'Peanut Butter (natural)', cal: 588, p: 25.0, c: 20.0, f: 50.0 },
+    ],
+    veggies: [
+      { name: 'Broccoli (steamed)', cal: 55, p: 3.7, c: 11.0, f: 0.6 },
+      { name: 'Baby Spinach (raw)', cal: 23, p: 2.9, c: 3.6, f: 0.4 },
+      { name: 'Mixed Salad Leaves', cal: 16, p: 1.5, c: 2.8, f: 0.2 },
+      { name: 'Cherry Tomatoes', cal: 18, p: 0.9, c: 3.9, f: 0.2 },
+      { name: 'Roasted Asparagus', cal: 20, p: 2.2, c: 3.9, f: 0.1 },
+      { name: 'Kale (steamed)', cal: 28, p: 1.9, c: 5.6, f: 0.4 },
+      { name: 'Courgette / Zucchini (grilled)', cal: 17, p: 1.2, c: 3.1, f: 0.3 },
+    ],
+    fruits: [
+      { name: 'Apple', cal: 52, p: 0.3, c: 14.0, f: 0.2 },
+      { name: 'Blueberries', cal: 57, p: 0.7, c: 14.5, f: 0.3 },
+      { name: 'Banana', cal: 89, p: 1.1, c: 23.0, f: 0.3 },
+      { name: 'Strawberries', cal: 32, p: 0.7, c: 7.7, f: 0.3 },
+      { name: 'Orange', cal: 47, p: 0.9, c: 11.8, f: 0.1 },
+    ],
+    mealCulture: 'Oats for breakfast. Whole grain bread, pasta, rice, quinoa as carbs. Chicken, fish, eggs, Greek yogurt as protein. Olive oil and avocado as fats. High vegetable intake: broccoli, kale, salads.',
+  },
+
+  // ── North America (USA, Canada, Mexico) ──
+  north_america: {
+    keywords: ['usa','united states','new york','los angeles','chicago','houston','phoenix','philadelphia','san antonio','san diego','dallas','canada','toronto','vancouver','montreal','calgary','mexico','mexico city','guadalajara','monterrey'],
+    label: 'North America',
+    proteins: [
+      { name: 'Grilled Chicken Breast', cal: 165, p: 31.0, c: 0.0, f: 3.6 },
+      { name: 'Tuna (canned in water)', cal: 116, p: 26.0, c: 0.0, f: 1.0 },
+      { name: 'Salmon Fillet (baked)', cal: 208, p: 28.0, c: 0.0, f: 10.0 },
+      { name: 'Greek Yogurt (non-fat)', cal: 59, p: 10.2, c: 3.6, f: 0.4 },
+      { name: 'Whole Eggs (scrambled)', cal: 155, p: 13.0, c: 1.1, f: 11.0 },
+      { name: 'Turkey Breast (grilled)', cal: 135, p: 30.0, c: 0.0, f: 1.0 },
+      { name: 'Lean Ground Beef 93% (cooked)', cal: 215, p: 26.0, c: 0.0, f: 11.5 },
+      { name: 'Cottage Cheese (1% fat)', cal: 72, p: 12.4, c: 2.7, f: 1.0 },
+      { name: 'Black Beans (cooked)', cal: 132, p: 8.9, c: 23.7, f: 0.5 },
+      { name: 'Whey Protein Shake (1 scoop 30g)', cal: 120, p: 25.0, c: 3.0, f: 1.5 },
+    ],
+    carbs: [
+      { name: 'Rolled Oats', cal: 389, p: 17.0, c: 66.0, f: 7.0 },
+      { name: 'Cooked Brown Rice', cal: 112, p: 2.6, c: 23.5, f: 0.9 },
+      { name: 'Sweet Potato (baked)', cal: 86, p: 1.6, c: 20.0, f: 0.1 },
+      { name: 'Whole Grain Bread (1 slice)', cal: 97, p: 4.0, c: 18.3, f: 1.3 },
+      { name: 'Cooked Quinoa', cal: 120, p: 4.4, c: 21.3, f: 1.9 },
+      { name: 'Corn Tortilla (1 pc ~26g)', cal: 52, p: 1.4, c: 11.0, f: 0.7 },
+      { name: 'Banana', cal: 89, p: 1.1, c: 23.0, f: 0.3 },
+    ],
+    fats: [
+      { name: 'Avocado', cal: 160, p: 2.0, c: 9.0, f: 15.0 },
+      { name: 'Almonds', cal: 579, p: 21.0, c: 22.0, f: 50.0 },
+      { name: 'Peanut Butter (natural)', cal: 588, p: 25.0, c: 20.0, f: 50.0 },
+      { name: 'Olive Oil', cal: 884, p: 0.0, c: 0.0, f: 100.0 },
+      { name: 'Walnuts', cal: 654, p: 15.0, c: 14.0, f: 65.0 },
+    ],
+    veggies: [
+      { name: 'Broccoli (steamed)', cal: 55, p: 3.7, c: 11.0, f: 0.6 },
+      { name: 'Baby Spinach', cal: 23, p: 2.9, c: 3.6, f: 0.4 },
+      { name: 'Bell Peppers (roasted)', cal: 31, p: 1.0, c: 6.0, f: 0.3 },
+      { name: 'Asparagus (steamed)', cal: 20, p: 2.2, c: 3.9, f: 0.1 },
+      { name: 'Cherry Tomatoes', cal: 18, p: 0.9, c: 3.9, f: 0.2 },
+      { name: 'Kale (steamed)', cal: 28, p: 1.9, c: 5.6, f: 0.4 },
+    ],
+    fruits: [
+      { name: 'Blueberries', cal: 57, p: 0.7, c: 14.5, f: 0.3 },
+      { name: 'Banana', cal: 89, p: 1.1, c: 23.0, f: 0.3 },
+      { name: 'Apple', cal: 52, p: 0.3, c: 14.0, f: 0.2 },
+      { name: 'Strawberries', cal: 32, p: 0.7, c: 7.7, f: 0.3 },
+      { name: 'Orange', cal: 47, p: 0.9, c: 11.8, f: 0.1 },
+    ],
+    mealCulture: 'Oats or eggs for breakfast. Chicken, turkey, fish, cottage cheese as protein. Brown rice, quinoa, sweet potato as carbs. Avocado and nuts as fats. High protein culture — protein shakes common.',
+  },
+
+  // ── South America (Brazil, Argentina, Colombia, Chile, Peru) ──
+  south_america: {
+    keywords: ['brazil','são paulo','rio de janeiro','brasilia','argentina','buenos aires','colombia','bogota','medellin','chile','santiago','peru','lima','venezuela','caracas','ecuador','quito','bolivia','la paz'],
+    label: 'South America',
+    proteins: [
+      { name: 'Grilled Chicken (Frango Grelhado)', cal: 165, p: 31.0, c: 0.0, f: 3.6 },
+      { name: 'Grilled Beef (Churrasco, lean cut)', cal: 185, p: 26.0, c: 0.0, f: 8.0 },
+      { name: 'Boiled Eggs', cal: 155, p: 13.0, c: 1.1, f: 11.0 },
+      { name: 'Grilled Fish (Tilapia/Sea Bass)', cal: 105, p: 22.0, c: 0.0, f: 1.8 },
+      { name: 'Cooked Black Beans (Feijão)', cal: 132, p: 8.9, c: 23.7, f: 0.5 },
+      { name: 'Ceviche Shrimp (no cream)', cal: 99, p: 21.0, c: 2.0, f: 1.1 },
+      { name: 'Low-fat Yogurt (natural)', cal: 63, p: 5.0, c: 7.0, f: 1.5 },
+    ],
+    carbs: [
+      { name: 'Cooked White Rice', cal: 130, p: 2.7, c: 28.2, f: 0.3 },
+      { name: 'Cooked Brown Rice', cal: 112, p: 2.6, c: 23.5, f: 0.9 },
+      { name: 'Cassava (mandioca, boiled)', cal: 160, p: 1.4, c: 38.1, f: 0.3 },
+      { name: 'Rolled Oats', cal: 389, p: 17.0, c: 66.0, f: 7.0 },
+      { name: 'Sweet Potato (boiled)', cal: 86, p: 1.6, c: 20.0, f: 0.1 },
+      { name: 'Corn (cooked, on cob)', cal: 86, p: 3.2, c: 19.0, f: 1.2 },
+      { name: 'Quinoa (cooked)', cal: 120, p: 4.4, c: 21.3, f: 1.9 },
+    ],
+    fats: [
+      { name: 'Avocado', cal: 160, p: 2.0, c: 9.0, f: 15.0 },
+      { name: 'Olive Oil', cal: 884, p: 0.0, c: 0.0, f: 100.0 },
+      { name: 'Peanut Butter', cal: 588, p: 25.0, c: 20.0, f: 50.0 },
+      { name: 'Cashew nuts', cal: 553, p: 18.2, c: 30.2, f: 43.9 },
+    ],
+    veggies: [
+      { name: 'Couve (collard greens, sautéed)', cal: 32, p: 2.5, c: 6.5, f: 0.5 },
+      { name: 'Tomatoes', cal: 18, p: 0.9, c: 3.9, f: 0.2 },
+      { name: 'Broccoli (steamed)', cal: 55, p: 3.7, c: 11.0, f: 0.6 },
+      { name: 'Spinach (cooked)', cal: 23, p: 2.9, c: 3.6, f: 0.4 },
+      { name: 'Zucchini (grilled)', cal: 17, p: 1.2, c: 3.1, f: 0.3 },
+    ],
+    fruits: [
+      { name: 'Banana', cal: 89, p: 1.1, c: 23.0, f: 0.3 },
+      { name: 'Papaya', cal: 43, p: 0.5, c: 11.0, f: 0.3 },
+      { name: 'Mango', cal: 60, p: 0.8, c: 15.0, f: 0.4 },
+      { name: 'Passion fruit', cal: 97, p: 2.2, c: 23.4, f: 0.7 },
+      { name: 'Pineapple', cal: 50, p: 0.5, c: 13.1, f: 0.1 },
+      { name: 'Avocado (half)', cal: 80, p: 1.0, c: 4.5, f: 7.5 },
+    ],
+    mealCulture: 'Rice and beans (staple combo). Grilled chicken and beef. Cassava and corn as local carbs. Avocado abundant. Tropical fruits daily. Minimal dairy except yogurt.',
+  },
+
+  // ── DEFAULT (International / Unknown) ──
+  default: {
+    keywords: [],
+    label: 'International',
+    proteins: [
+      { name: 'Grilled Chicken Breast', cal: 165, p: 31.0, c: 0.0, f: 3.6 },
+      { name: 'Salmon Fillet (baked)', cal: 208, p: 28.0, c: 0.0, f: 10.0 },
+      { name: 'Tuna (canned in water)', cal: 116, p: 26.0, c: 0.0, f: 1.0 },
+      { name: 'Boiled Eggs', cal: 155, p: 13.0, c: 1.1, f: 11.0 },
+      { name: 'Greek Yogurt (0% fat)', cal: 59, p: 10.2, c: 3.6, f: 0.4 },
+      { name: 'Cooked Lentils', cal: 116, p: 9.0, c: 20.0, f: 0.4 },
+      { name: 'Cottage Cheese', cal: 98, p: 11.0, c: 3.4, f: 4.3 },
+    ],
+    carbs: [
+      { name: 'Rolled Oats', cal: 389, p: 17.0, c: 66.0, f: 7.0 },
+      { name: 'Cooked Brown Rice', cal: 112, p: 2.6, c: 23.5, f: 0.9 },
+      { name: 'Sweet Potato (boiled)', cal: 86, p: 1.6, c: 20.0, f: 0.1 },
+      { name: 'Banana', cal: 89, p: 1.1, c: 23.0, f: 0.3 },
+      { name: 'Cooked Quinoa', cal: 120, p: 4.4, c: 21.3, f: 1.9 },
+    ],
+    fats: [
+      { name: 'Olive Oil', cal: 884, p: 0.0, c: 0.0, f: 100.0 },
+      { name: 'Almonds', cal: 579, p: 21.0, c: 22.0, f: 50.0 },
+      { name: 'Avocado', cal: 160, p: 2.0, c: 9.0, f: 15.0 },
+    ],
+    veggies: [
+      { name: 'Broccoli (steamed)', cal: 55, p: 3.7, c: 11.0, f: 0.6 },
+      { name: 'Spinach', cal: 23, p: 2.9, c: 3.6, f: 0.4 },
+      { name: 'Mixed Vegetables', cal: 65, p: 2.0, c: 13.0, f: 0.5 },
+    ],
+    fruits: [
+      { name: 'Apple', cal: 52, p: 0.3, c: 14.0, f: 0.2 },
+      { name: 'Banana', cal: 89, p: 1.1, c: 23.0, f: 0.3 },
+      { name: 'Orange', cal: 47, p: 0.9, c: 11.8, f: 0.1 },
+    ],
+    mealCulture: 'Balanced international diet using globally available whole foods.',
+  },
 };
+
+// ── Detect region from location string ──
+function detectRegion(locationStr) {
+  if (!locationStr) return REGIONAL_FOOD_DB.default;
+  const loc = locationStr.toLowerCase();
+  for (const [, region] of Object.entries(REGIONAL_FOOD_DB)) {
+    if (region.keywords && region.keywords.some(k => loc.includes(k))) {
+      return region;
+    }
+  }
+  return REGIONAL_FOOD_DB.default;
+}
+
+// ── Format regional foods as a readable list for the prompt ──
+function buildRegionalFoodList(region) {
+  const fmt = (arr) => arr.map(f => `  • ${f.name} — ${f.cal} kcal | P: ${f.p}g | C: ${f.c}g | F: ${f.f}g (per 100g)`).join('\n');
+  return `PROTEINS:\n${fmt(region.proteins)}\n\nCARBS:\n${fmt(region.carbs)}\n\nHEALTHY FATS:\n${fmt(region.fats)}\n\nVEGETABLES:\n${fmt(region.veggies)}\n\nFRUITS:\n${fmt(region.fruits)}`;
+}
+
 // ═══════════════════════════════════════
 // AI DIET PLAN GENERATOR (Claude API)
 // ═══════════════════════════════════════
 
-/**
- * Generate a 7-day weekly diet plan via Claude API.
- * Each day has 4 meals with different foods but same macro targets.
- * Returns: { locationNote, weeklyPlan: [ { day, meals[] }, ... ] }
- */
 async function generateDietPlan(targetCal, macros, goal, weight, bmi, age, heightCm, gender, activity, location) {
   const goalLabel  = { loss: 'Fat Loss / Weight Loss', gain: 'Muscle Gain / Bulking', maintenance: 'Body Maintenance / Recomposition' }[goal];
   const bmiLabel   = bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese';
   const actLabel   = { sedentary: 'Sedentary (desk job, little exercise)', moderate: 'Moderately Active (3-5 days/week)', active: 'Very Active (daily intense training)' }[activity];
   const locationStr = location && location.trim() ? location.trim() : 'Unknown';
 
-  const prompt = `You are a registered dietitian generating a medically accurate, personalised 7-day weekly diet plan. This is for a real person with real health goals — accuracy is critical.
+  const region = detectRegion(locationStr);
+  const foodList = buildRegionalFoodList(region);
+
+  const prompt = `You are a registered dietitian and nutritional scientist. Generate a medically accurate, fully personalised 7-day weekly diet plan. This is for a real person — accuracy is critical and every food must be genuinely available in their region.
 
 CLIENT PROFILE:
 - Age: ${age} years | Height: ${heightCm.toFixed(0)} cm | Weight: ${weight} kg | Gender: ${gender}
-- BMI: ${bmi.toFixed(1)} (${bmiLabel}) | Activity: ${actLabel}
-- Goal: ${goalLabel} | Location: ${locationStr}
+- BMI: ${bmi.toFixed(1)} (${bmiLabel}) | Activity Level: ${actLabel}
+- Goal: ${goalLabel}
+- Location: ${locationStr} (Region detected: ${region.label})
 
-DAILY MACRO TARGETS (must be hit within ±5% each day):
+DAILY MACRO TARGETS — hit within ±5% EVERY day:
 - Calories: ${targetCal} kcal | Protein: ${macros.protein}g | Carbs: ${macros.carbs}g | Fat: ${macros.fat}g
 
-STRICT RULES — follow every one:
-1. Generate exactly 7 days (Monday through Sunday).
-2. Each day must have exactly 4 meals: Breakfast, Lunch, Evening Snack, Dinner.
-3. Every day must use DIFFERENT foods — no two days should share the same meal combination. Rotate proteins, carbs, and vegetables across days for nutritional variety.
-4. ALL foods must be locally available and commonly eaten in ${locationStr}. Use regional staples. No obscure Western supplements unless the region is Western.
-5. Macros per item must be nutritionally accurate (use USDA/standard values). Quantities must add up mathematically to hit the daily targets.
-6. Each food item must list: name, qty (e.g. "150g"), cal, p (protein g), c (carbs g), f (fat g).
-7. Each meal must have 3–5 food items.
-8. Vary cooking methods: grilled, boiled, stir-fried, raw, baked etc — do not repeat the same preparation every day.
-9. Include a brief mealNote (1 sentence) explaining why this meal suits this specific client.
-10. Sunday can be a slightly more flexible "cheat-clean" day — still hitting targets but with slightly more enjoyable food choices.
+═══════════════════════════════════
+APPROVED REGIONAL FOOD LIST FOR ${locationStr.toUpperCase()}
+Use ONLY foods from this list OR other foods genuinely common in ${locationStr}.
+All macro values below are per 100g (USDA/standard references).
+═══════════════════════════════════
+${foodList}
 
-Respond ONLY with valid JSON. No markdown, no backticks, no explanation outside the JSON. Structure:
+REGIONAL FOOD CULTURE NOTE:
+${region.mealCulture}
+
+STRICT RULES — follow every single one:
+1. Generate EXACTLY 7 days: Monday through Sunday.
+2. Each day has EXACTLY 4 meals: Breakfast, Lunch, Evening Snack, Dinner.
+3. ALL food names must be REAL foods commonly sold in ${locationStr}. Use local names (e.g. "Chicken Tikka" not just "grilled chicken" for India; "Shawarma chicken" not "diced chicken" for UAE).
+4. EVERY DAY must use DIFFERENT foods — rotate proteins, carbs, vegetables and cooking methods across all 7 days. No two days should have the same meal.
+5. Cooking methods must VARY: grilled, boiled, steamed, stir-fried, baked, raw — rotate every day.
+6. Food quantities MUST add up mathematically to hit the daily macro targets within ±5%.
+7. Each food item MUST include accurate macros per the quantity listed (scale from per-100g values).
+8. Each meal: 3–5 food items minimum.
+9. Sunday: slightly more enjoyable "clean cheat" day — still hitting targets but with more culturally festive local food.
+10. Include a mealNote (1 sentence) explaining specifically WHY this meal suits this person's profile.
+
+Respond ONLY with valid JSON — no markdown, no backticks, no text outside the JSON.
+
 {
-  "locationNote": "1-sentence note on why these foods suit ${locationStr}",
+  "locationNote": "1-sentence note about why these specific ${locationStr} foods suit this client",
   "weeklyPlan": [
     {
       "day": "Monday",
-      "dayNote": "optional 1-sentence theme for this day e.g. High-carb refeed",
+      "dayNote": "Brief theme e.g. High-protein start to the week",
       "meals": [
         {
           "time": "7:00 – 8:00 AM",
           "name": "Breakfast",
           "emoji": "🌅",
-          "mealNote": "why this meal suits the client",
+          "mealNote": "Why this meal suits this specific client",
           "items": [
-            { "name": "Food Name", "qty": "150g", "cal": 210, "p": 18.0, "c": 12.0, "f": 8.0 }
+            { "name": "Exact local food name", "qty": "150g", "cal": 210, "p": 18.0, "c": 12.0, "f": 8.0 }
           ]
         },
         { "time": "12:30 – 1:30 PM", "name": "Lunch", "emoji": "☀️", "mealNote": "...", "items": [...] },
@@ -276,7 +772,6 @@ Respond ONLY with valid JSON. No markdown, no backticks, no explanation outside 
         { "time": "7:30 – 8:30 PM", "name": "Dinner", "emoji": "🌙", "mealNote": "...", "items": [...] }
       ]
     }
-    // ... repeat for Tuesday through Sunday
   ]
 }`;
 
@@ -285,7 +780,7 @@ Respond ONLY with valid JSON. No markdown, no backticks, no explanation outside 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -296,79 +791,103 @@ Respond ONLY with valid JSON. No markdown, no backticks, no explanation outside 
     const raw = data.content.map(b => b.text || '').join('').trim();
     const clean = raw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
     const parsed = JSON.parse(clean);
-    return parsed; // { locationNote, weeklyPlan[] }
+    return parsed;
   } catch (err) {
     console.error('AI weekly diet generation failed, using fallback:', err);
-    return generateFallbackDietPlan(targetCal, macros, goal, weight, bmi);
+    return generateFallbackDietPlan(targetCal, macros, goal, weight, bmi, locationStr);
   }
 }
 
-// ── Fallback (original logic) if API fails ──
-function generateFallbackDietPlan(targetCal, macros, goal, weight, bmi) {
+// ── Fallback: uses the regional food DB so even fallback is location-aware ──
+function generateFallbackDietPlan(targetCal, macros, goal, weight, bmi, locationStr) {
   const isLoss = goal === 'loss';
   const isGain = goal === 'gain';
+  const region = detectRegion(locationStr || '');
+
   const dist = isLoss  ? [0.25, 0.35, 0.10, 0.30]
              : isGain  ? [0.28, 0.32, 0.12, 0.28]
                        : [0.25, 0.30, 0.15, 0.30];
 
-  const meal = (i) => ({
-    cal:     Math.round(targetCal    * dist[i]),
-    protein: Math.round(macros.protein * dist[i]),
-    fat:     Math.round(macros.fat   * dist[i]),
+  const mealBudget = (i) => ({
+    cal:     Math.round(targetCal       * dist[i]),
+    protein: Math.round(macros.protein  * dist[i]),
   });
 
-  const buildFallback = (time, name, emoji, mealCal, mealPro, pFood, cFood, fFood, vFood) => {
-    const items = [];
-    const pGrams = Math.max(50, Math.round((mealPro / pFood.p) * 100));
-    const pItem  = { name: pFood.name, qty: pGrams+'g', cal: Math.round(pFood.cal*pGrams/100), p: +(pFood.p*pGrams/100).toFixed(1), c: +(pFood.c*pGrams/100).toFixed(1), f: +(pFood.f*pGrams/100).toFixed(1) };
-    items.push(pItem);
-    const fatRem = Math.max(0, meal(0).fat - pItem.f);
-    const fGrams = fFood.f > 0 ? Math.min(50, Math.max(5, Math.round((fatRem / fFood.f) * 100))) : 10;
-    if (fFood !== pFood) items.push({ name: fFood.name, qty: fGrams+'g', cal: Math.round(fFood.cal*fGrams/100), p: +(fFood.p*fGrams/100).toFixed(1), c: +(fFood.c*fGrams/100).toFixed(1), f: +(fFood.f*fGrams/100).toFixed(1) });
-    if (vFood) items.push({ name: vFood.name, qty: '150g', cal: Math.round(vFood.cal*1.5), p: +(vFood.p*1.5).toFixed(1), c: +(vFood.c*1.5).toFixed(1), f: +(vFood.f*1.5).toFixed(1) });
-    const calUsed = items.reduce((s,i) => s+i.cal, 0);
-    const calLeft = Math.max(0, mealCal - calUsed);
-    const cGrams  = cFood.cal > 0 ? Math.min(500, Math.max(30, Math.round((calLeft/cFood.cal)*100))) : 100;
-    items.push({ name: cFood.name, qty: cGrams+'g', cal: Math.round(cFood.cal*cGrams/100), p: +(cFood.p*cGrams/100).toFixed(1), c: +(cFood.c*cGrams/100).toFixed(1), f: +(cFood.f*cGrams/100).toFixed(1) });
-    return { time, name, emoji, mealNote: '', items };
-  };
+  // Pick foods cycling through regional lists
+  const proteins = region.proteins;
+  const carbs    = region.carbs;
+  const fats     = region.fats;
+  const veggies  = region.veggies;
+  const fruits   = region.fruits;
 
-  const meals = [];
-  if (isLoss) {
-    meals.push(buildFallback('7:00 – 8:00 AM','Breakfast','🌅', meal(0).cal, meal(0).protein, FOOD_DB.eggWhites, FOOD_DB.oats, FOOD_DB.almonds, null));
-    meals.push(buildFallback('12:30 – 1:30 PM','Lunch','☀️', meal(1).cal, meal(1).protein, FOOD_DB.chickenBreast, FOOD_DB.brownRice, FOOD_DB.oliveOil, FOOD_DB.broccoli));
-    meals.push(buildFallback('4:00 – 5:00 PM','Evening Snack','🌿', meal(2).cal, meal(2).protein, FOOD_DB.greekYogurt, FOOD_DB.apple, FOOD_DB.almonds, null));
-    meals.push(buildFallback('7:30 – 8:30 PM','Dinner','🌙', meal(3).cal, meal(3).protein, FOOD_DB.tunaCanned, FOOD_DB.sweetPotato, FOOD_DB.oliveOil, FOOD_DB.broccoli));
-  } else if (isGain) {
-    meals.push(buildFallback('7:00 – 8:00 AM','Breakfast','🌅', meal(0).cal, meal(0).protein, FOOD_DB.eggs, FOOD_DB.oats, FOOD_DB.peanutButter, null));
-    meals.push(buildFallback('12:30 – 1:30 PM','Lunch','☀️', meal(1).cal, meal(1).protein, FOOD_DB.chickenBreast, FOOD_DB.brownRice, FOOD_DB.avocado, FOOD_DB.mixedVeg));
-    meals.push(buildFallback('4:00 – 5:00 PM','Evening Snack','🌿', meal(2).cal, meal(2).protein, FOOD_DB.wheyProtein, FOOD_DB.banana, FOOD_DB.peanutButter, null));
-    meals.push(buildFallback('7:30 – 8:30 PM','Dinner','🌙', meal(3).cal, meal(3).protein, FOOD_DB.salmonFillet, FOOD_DB.sweetPotato, FOOD_DB.almonds, FOOD_DB.spinach));
-  } else {
-    meals.push(buildFallback('7:00 – 8:00 AM','Breakfast','🌅', meal(0).cal, meal(0).protein, FOOD_DB.greekYogurt, FOOD_DB.wholeWheatBread, FOOD_DB.almonds, null));
-    meals.push(buildFallback('12:30 – 1:30 PM','Lunch','☀️', meal(1).cal, meal(1).protein, FOOD_DB.salmonFillet, FOOD_DB.quinoa, FOOD_DB.oliveOil, FOOD_DB.spinach));
-    meals.push(buildFallback('4:00 – 5:00 PM','Evening Snack','🌿', meal(2).cal, meal(2).protein, FOOD_DB.cottage, FOOD_DB.apple, FOOD_DB.almonds, null));
-    meals.push(buildFallback('7:30 – 8:30 PM','Dinner','🌙', meal(3).cal, meal(3).protein, FOOD_DB.chickenBreast, FOOD_DB.lentils, FOOD_DB.oliveOil, FOOD_DB.mixedVeg));
-  }
-  // Wrap single day into a full week (fallback repeats with minor variation)
+  const pick = (arr, idx) => arr[idx % arr.length];
+
   const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-  const weeklyPlan = days.map((day, i) => {
-    const proteinCycle = isLoss
-      ? [FOOD_DB.eggWhites, FOOD_DB.chickenBreast, FOOD_DB.tunaCanned, FOOD_DB.salmonFillet, FOOD_DB.greekYogurt, FOOD_DB.eggs, FOOD_DB.cottage]
-      : isGain
-      ? [FOOD_DB.eggs, FOOD_DB.chickenBreast, FOOD_DB.salmonFillet, FOOD_DB.cottage, FOOD_DB.tunaCanned, FOOD_DB.greekYogurt, FOOD_DB.eggWhites]
-      : [FOOD_DB.greekYogurt, FOOD_DB.salmonFillet, FOOD_DB.chickenBreast, FOOD_DB.eggs, FOOD_DB.tunaCanned, FOOD_DB.cottage, FOOD_DB.lentils];
-    const carbCycle = [FOOD_DB.oats, FOOD_DB.brownRice, FOOD_DB.sweetPotato, FOOD_DB.quinoa, FOOD_DB.wholeWheatBread, FOOD_DB.banana, FOOD_DB.oats];
-    const vegCycle  = [null, FOOD_DB.broccoli, FOOD_DB.spinach, FOOD_DB.mixedVeg, FOOD_DB.broccoli, FOOD_DB.spinach, null];
-    const pSrc = proteinCycle[i], cSrc = carbCycle[i], vSrc = vegCycle[i];
-    const dayMeals = [];
-    dayMeals.push(buildFallback('7:00 – 8:00 AM','Breakfast','🌅', meal(0).cal, meal(0).protein, pSrc, cSrc, FOOD_DB.almonds, null));
-    dayMeals.push(buildFallback('12:30 – 1:30 PM','Lunch','☀️', meal(1).cal, meal(1).protein, FOOD_DB.chickenBreast, cSrc, FOOD_DB.oliveOil, vSrc));
-    dayMeals.push(buildFallback('4:00 – 5:00 PM','Evening Snack','🌿', meal(2).cal, meal(2).protein, FOOD_DB.greekYogurt, FOOD_DB.apple, FOOD_DB.almonds, null));
-    dayMeals.push(buildFallback('7:30 – 8:30 PM','Dinner','🌙', meal(3).cal, meal(3).protein, pSrc, FOOD_DB.sweetPotato, FOOD_DB.oliveOil, vSrc || FOOD_DB.broccoli));
-    return { day, dayNote: '', meals: dayMeals };
+  const weeklyPlan = days.map((day, di) => {
+    const pFood = pick(proteins, di);
+    const cFood = pick(carbs, di);
+    const fFood = pick(fats, di);
+    const vFood = pick(veggies, di);
+    const fruit = pick(fruits, di);
+    const p2    = pick(proteins, di + 2);
+    const c2    = pick(carbs, di + 1);
+
+    function makeItem(food, grams) {
+      const g = Math.max(10, Math.round(grams));
+      return {
+        name: food.name,
+        qty: `${g}g`,
+        cal: Math.round(food.cal * g / 100),
+        p: +((food.p * g / 100).toFixed(1)),
+        c: +((food.c * g / 100).toFixed(1)),
+        f: +((food.f * g / 100).toFixed(1)),
+      };
+    }
+
+    const budgetB = mealBudget(0);
+    const budgetL = mealBudget(1);
+    const budgetS = mealBudget(2);
+    const budgetD = mealBudget(3);
+
+    const breakfast = {
+      time: '7:00 – 8:00 AM', name: 'Breakfast', emoji: '🌅', mealNote: 'High-protein breakfast to kickstart metabolism.',
+      items: [
+        makeItem(pFood, (budgetB.protein / (pFood.p / 100))),
+        makeItem(cFood, 80),
+        makeItem(fFood, 15),
+        makeItem(fruit, 100),
+      ]
+    };
+    const lunch = {
+      time: '12:30 – 1:30 PM', name: 'Lunch', emoji: '☀️', mealNote: 'Balanced midday meal with lean protein and complex carbs.',
+      items: [
+        makeItem(p2, (budgetL.protein / (p2.p / 100))),
+        makeItem(c2, 120),
+        makeItem(vFood, 150),
+        makeItem(fFood, 10),
+      ]
+    };
+    const snack = {
+      time: '4:00 – 5:00 PM', name: 'Evening Snack', emoji: '🌿', mealNote: 'Light protein-rich snack to maintain energy.',
+      items: [
+        makeItem(pick(proteins, di + 3), 80),
+        makeItem(fruit, 120),
+      ]
+    };
+    const dinner = {
+      time: '7:30 – 8:30 PM', name: 'Dinner', emoji: '🌙', mealNote: 'Lean protein with vegetables for overnight recovery.',
+      items: [
+        makeItem(pick(proteins, di + 1), (budgetD.protein / (pick(proteins, di+1).p / 100))),
+        makeItem(pick(carbs, di + 2), 100),
+        makeItem(pick(veggies, di + 1), 150),
+        makeItem(fFood, 10),
+      ]
+    };
+
+    return { day, dayNote: '', meals: [breakfast, lunch, snack, dinner] };
   });
-  return { locationNote: null, weeklyPlan };
+
+  return { locationNote: `Foods chosen from ${region.label} staples available in your area.`, weeklyPlan };
 }
 
 
