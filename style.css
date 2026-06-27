@@ -1201,12 +1201,161 @@ input::placeholder { color: var(--text3); }
 }
 
 
+/* ═══════════════════════════════════════
+   WEEKLY DIET — Tab Strip & Day Columns
+═══════════════════════════════════════ */
+
+.week-tab-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 2px 12px;
+  margin-bottom: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+.week-tab-strip::-webkit-scrollbar { height: 4px; }
+.week-tab-strip::-webkit-scrollbar-track { background: transparent; }
+.week-tab-strip::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+
+.week-day-tab {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text2);
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all var(--transition);
+  min-width: 92px;
+}
+.week-day-tab:hover {
+  border-color: var(--day-color, var(--accent));
+  background: var(--surface2);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.week-day-tab.active {
+  background: var(--day-color, var(--accent));
+  border-color: var(--day-color, var(--accent));
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--day-color, var(--accent)) 45%, transparent);
+}
+.wdt-name { font-size: 0.88rem; font-weight: 700; }
+.wdt-cal  { font-size: 0.67rem; font-weight: 500; opacity: 0.88; }
+
+/* Day column panels */
+.week-columns-wrap { position: relative; }
+.week-day-col { display: none; animation: wdcFadeIn 0.25s ease; }
+.week-day-col.active { display: block; }
+@keyframes wdcFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Day header */
+.wdc-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--day-color, var(--accent));
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.wdc-dh-left { display: flex; align-items: center; gap: 12px; }
+.wdc-dh-dot  { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.wdc-dh-name { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--text); }
+.wdc-dh-sub  { font-size: 0.76rem; color: var(--text3); font-style: italic; margin-top: 2px; }
+.wdc-dh-macros { display: flex; gap: 8px; flex-wrap: wrap; }
+.wdc-macro-pill {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 7px 12px; min-width: 58px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+}
+.wdc-mp-val  { font-size: 1rem; font-weight: 700; color: inherit; }
+.wdc-mp-unit { font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); }
+
+/* Scrollable meals */
+.wdc-meals-scroll {
+  display: flex; flex-direction: column; gap: 14px;
+  max-height: 72vh; overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.wdc-meals-scroll::-webkit-scrollbar { width: 4px; }
+.wdc-meals-scroll::-webkit-scrollbar-track { background: transparent; }
+.wdc-meals-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.wdc-no-meals { padding: 24px; color: var(--text3); text-align: center; font-style: italic; }
+
+/* Meal block */
+.wdc-meal-block {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.wdc-meal-block:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.09); }
+
+.wdc-mb-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; gap: 12px;
+  background: var(--surface2); border-bottom: 1px solid var(--border);
+}
+.wdc-mb-left  { display: flex; align-items: center; gap: 10px; }
+.wdc-mb-emoji { font-size: 1.5rem; flex-shrink: 0; }
+.wdc-mb-name  { font-weight: 700; font-size: 0.96rem; color: var(--text); }
+.wdc-mb-time  { font-size: 0.67rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-top: 2px; }
+.wdc-mb-cal   { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.wdc-mb-cal-unit { font-size: 0.68rem; color: var(--text3); }
+
+.wdc-mb-note {
+  font-size: 0.77rem; color: var(--text3); font-style: italic;
+  padding: 8px 18px;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Food rows */
+.wdc-mb-items { padding: 10px 18px; display: flex; flex-direction: column; gap: 8px; }
+.wdc-food-row {
+  padding: 8px 12px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.wdc-fr-name   { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+.wdc-fr-qty    { font-weight: 400; color: var(--text3); font-size: 0.82rem; }
+.wdc-fr-macros { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.72rem; font-weight: 600; margin-top: 2px; }
+.wdc-fr-p { color: #22c55e; }
+.wdc-fr-c { color: #3b82f6; }
+.wdc-fr-f { color: #f97316; }
+.wdc-fr-kcal  { color: var(--text3); font-weight: 400; }
+
+/* Meal totals */
+.wdc-mb-totals {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  padding: 10px 18px;
+  border-top: 1px solid var(--border);
+  font-size: 0.74rem; font-weight: 600; color: var(--text3);
+}
+.wdc-mb-totals .mi-p { color: #22c55e; }
+.wdc-mb-totals .mi-c { color: #3b82f6; }
+.wdc-mb-totals .mi-f { color: #f97316; }
+
 @media (max-width: 900px) {
   .landing-layout { grid-template-columns: 1fr; }
-  .landing-hero {
-    padding: 40px 24px;
-    min-height: 50vh;
-  }
+  .landing-hero { padding: 40px 24px; min-height: 50vh; }
   .hero-visual { display: none; }
   .form-panel { padding: 24px; }
   .form-card { padding: 24px; }
@@ -1218,11 +1367,12 @@ input::placeholder { color: var(--text3); }
   .header-actions { gap: 4px; }
   .action-btn { padding: 7px 10px; font-size: 0.75rem; }
 
-  .wss-days { grid-template-columns: repeat(7, 1fr); gap: 4px; }
-  .wss-day { padding: 8px 2px; }
-  .wss-day-cal { font-size: 0.85rem; }
-  .dph-macros { gap: 6px; }
-  .dph-macro { padding: 6px 8px; min-width: 54px; }
+  /* Weekly diet — tablet */
+  .week-day-tab { min-width: 80px; padding: 9px 14px; }
+  .wdc-day-header { flex-direction: column; align-items: flex-start; }
+  .wdc-dh-macros { width: 100%; justify-content: space-between; }
+  .wdc-macro-pill { flex: 1; min-width: 0; }
+  .wdc-meals-scroll { max-height: none; overflow-y: visible; }
 }
 
 @media (max-width: 600px) {
@@ -1232,23 +1382,27 @@ input::placeholder { color: var(--text3); }
   .results-header { padding: 12px 16px; }
   .header-logo { font-size: 1.1rem; }
 
-  .wss-days { grid-template-columns: repeat(7, 1fr); gap: 2px; }
-  .wss-day-name { font-size: 0.6rem; }
-  .wss-day-cal { font-size: 0.78rem; }
-  .wss-day-cal-unit { display: none; }
-  .day-tabs { gap: 4px; padding: 6px; }
-  .day-tab { padding: 8px 4px; font-size: 0.75rem; }
-  .day-panel-header { flex-direction: column; align-items: flex-start; }
-  .dph-macros { width: 100%; justify-content: space-between; }
-  .dph-macro { flex: 1; min-width: 0; }
+  /* Weekly diet — mobile */
+  .week-tab-strip { gap: 5px; padding-bottom: 10px; }
+  .week-day-tab { min-width: 70px; padding: 8px 10px; }
+  .wdt-name { font-size: 0.78rem; }
+  .wdt-cal  { font-size: 0.62rem; }
+  .wdc-dh-name { font-size: 1.1rem; }
+  .wdc-macro-pill { padding: 5px 8px; }
+  .wdc-mp-val { font-size: 0.85rem; }
+  .wdc-mb-header { padding: 12px 14px; }
+  .wdc-mb-items { padding: 8px 14px; }
+  .wdc-mb-totals { padding: 8px 14px; gap: 10px; }
 }
 
-/* PDF styles */
+/* PDF / Print — show all days expanded */
 @media print {
   .results-header, .results-nav, .theme-toggle { display: none; }
   .results-layout { grid-template-columns: 1fr; }
   .result-section { break-inside: avoid; margin-bottom: 32px; }
-  .day-tabs { display: none; }
-  .day-panel { display: block !important; margin-bottom: 24px; break-inside: avoid; }
-  .day-panel-header { break-inside: avoid; }
+  .week-tab-strip { display: none; }
+  .week-day-col { display: block !important; margin-bottom: 28px; break-inside: avoid; }
+  .wdc-meals-scroll { max-height: none; overflow: visible; }
+  .wdc-day-header { break-inside: avoid; }
+  .wdc-meal-block { break-inside: avoid; }
 }
